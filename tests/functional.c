@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 /*
 The plan:
@@ -11,9 +12,12 @@ The plan:
 - randomly choose posix_memalign, calloc, malloc, and check assumptions of used function
 - write some random, deterministic data to each allocated block
 - before destruction, check data
-- sometimes use realloc (when?)
+- sometimes use realloc 
 
 */
+
+#include "../memory.h"
+
 
 void assert(bool a, char * msg){
     if(!a){
@@ -100,13 +104,13 @@ typedef struct {
 } alloc;
 
 
+#define NUM_THREADS 4
 #define _1GB 1073741824ull 
-#define _100GB (20 * _1GB)
+#define _100GB (10 * _1GB)
 #define ALLOC_MAX _1GB
 #define ALLOC_MIN 1
-#define ALLOC_AVG 250000 //((ALLOC_MAX + ALLOC_MIN) / 2)
+#define ALLOC_AVG 250000 / NUM_THREADS
 #define ALLOCS_MAX_NUM (_1GB / ALLOC_AVG)
-
 
 
 
@@ -126,8 +130,8 @@ size_t rand_alloc_size(){
 }
 
 
-alloc allocs[ALLOCS_MAX_NUM];
-uint64_t sum_allocated_ever = 0;
+__thread alloc allocs[ALLOCS_MAX_NUM];
+__thread uint64_t sum_allocated_ever = 0;
 
 void init(){
     for(size_t i = 0; i < ALLOCS_MAX_NUM; i++){
@@ -225,8 +229,8 @@ void free_rest(){
     }
 }
 
-void test(){
-
+void *test(void * a){
+    (void )a;
     init();
     while(sum_allocated_ever < _100GB){
         allocate_something();
@@ -234,11 +238,25 @@ void test(){
 
     free_rest();  
 
-
+    return NULL;
 }
 
-int main(){
-    srand(2);
-    test();
+pthread_t tid[NUM_THREADS];
 
+
+int main(){
+    // srand(EAGAIN); // deterministic
+    // srand(malloc(time())); // semi-deterministic
+    // srand(fork()); // wtf?
+    srand(getpagesize());
+
+    for(int i = 0; i < NUM_THREADS; i++){
+        pthread_create(&(tid[i]), NULL, &test, NULL);
+    }
+
+    for(int i = 0; i < NUM_THREADS; i++){
+        void * retval;
+        pthread_join(tid[i], &retval);
+    }
+    // test();
 }
