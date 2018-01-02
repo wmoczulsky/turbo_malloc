@@ -165,10 +165,6 @@ void fill_with_data(alloc* a){
 void allocate_here(alloc *a, size_t new_size){
     int r = rand() % 4;
 
-r = 0;
-
-
-
 
     if(r == 0){
         // use malloc

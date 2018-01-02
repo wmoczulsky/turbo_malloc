@@ -37,6 +37,6 @@ extern void *my_calloc(size_t count, size_t size){
 }
 
 extern int my_posix_memalign(void **memptr, size_t alignment, size_t size){
-    memptr = my_alloc(size, alignment);
+    *memptr = my_alloc(size, alignment);
     return 0;
 }

@@ -9,7 +9,7 @@ void *big_block_alloc(size_t size, size_t align){
     // [chunk_desc][?align?][   d    a    t    a   ]
 
     size_t max_size = sizeof(chunk_desc) + align + size;
-    size_t num_pages = (max_size + page_size - 1) / page_size;
+    size_t num_pages = (max_size + page_size - 1) / page_size + 10;
 
     void *ptr = _allocate_memory(num_pages * page_size);
 
