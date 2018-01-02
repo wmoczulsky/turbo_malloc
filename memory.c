@@ -1,13 +1,13 @@
 #include "./common.h"
 #include "./memory.h"
-#include "./big_block.h"
+#include "./allocator/big_block.h"
 
 
-allocator *get_allocator_by(void *ptr){
-    chunk_desc *chunk = chunk_find_by_data_ptr(ptr);
+allocator *get_allocator_by_ptr(void *ptr){
+    chunk_header *chunk = chunk_find_by_data_ptr(ptr);
     switch(chunk->allocator_type){
         case BIG_BLOCK:
-        return big_block_allocator;
+        return &big_block_allocator;
     default:
         assert(0);
         return NULL;
@@ -15,79 +15,72 @@ allocator *get_allocator_by(void *ptr){
 }
 
 
-
-// void *my_alloc(size_t size, size_t align){
-
-//     { // ensure sizeof(void *) alignment
-//         assert(align % sizeof(void *) == 0); 
-//         size = size + sizeof(void *) - (size % sizeof(void *)); 
-//     }
-
-//     void *ptr = big_block_alloc(size, align); // choose allocator apropriate to size of block
-
-//     return ptr;
-// }
+allocator *get_allocator_by_size(size_t size){
+    return &big_block_allocator;
+}
 
 
-// void my_free(void *ptr){
-//     assert(ptr != NULL);
-//     chunk_desc *chunk = find_chunk_by_data_ptr(ptr);
 
-//     switch(chunk->allocator_type){
-//         case BIG_BLOCK:
-//             big_block_free(chunk);
-//             break;
-//         default:
-//             assert(0);
-//     }
-// }
+void *my_alloc(size_t size, size_t align){
 
-// // resize tries to resize block, if moving is needed, then return false
-// bool my_try_resize(chunk_desc *chunk, size_t size){
-//     switch(chunk->allocator_type){
-//         case BIG_BLOCK:
-//             return big_block_try_to_resize(chunk, size);
-//             break;
-//         default:
-//             assert(0);
-//     }
-// }
+    { // ensure sizeof(void *) alignment
+        assert(align % sizeof(void *) == 0); 
+        size = size + sizeof(void *) - (size % sizeof(void *)); 
+    }
 
-// void *my_try_move_to_bigger_block(chunk_desc *chunk, size_t size){
-//     void *new_ptr = my_alloc(size, sizeof(void *));
-//     if(new_ptr){
-//         assert(chunk->num_pages * page_size < size);
-//         memcpy(new_ptr, chunk->data_ptr, chunk->data_size);
-//     }
+    void *ptr = get_allocator_by_size(size)->alloc(size, align); // choose allocator apropriate to size of block
+    return ptr;
+}
 
-//     return new_ptr;
-// }
 
-// void *my_realloc(void *ptr, size_t size){
-//     // "If ptr is NULL, then the call is equivalent to malloc(size), for all values of size"
-//     if(ptr == NULL){
-//         return my_malloc(size);
-//     }
+void my_free(void *ptr){
+    assert(ptr != NULL);
+    get_allocator_by_ptr(ptr)->free(ptr);
+}
 
-//     // "if size is equal to zero, and ptr is not NULL, then the call is equivalent to free(ptr)"
-//     if(size == 0 && ptr != NULL){
-//         my_free(ptr);
-//     }
+// resize tries to resize block, if moving is needed, then return false
+bool my_try_resize(chunk_header *chunk, size_t size){
+    assert(chunk != NULL);
+    return get_allocator_by_ptr(chunk)->try_resize(chunk, size);
+}
 
-//     assert(ptr != NULL);
+void *my_move_to_bigger_block(void *old_data_ptr, chunk_header *chunk, size_t old_size, size_t size){
+    void *new_ptr = my_alloc(size, sizeof(void *));
+    if(new_ptr){
+        assert(old_size < size);
+        memcpy(new_ptr, old_data_ptr, old_size);
+    }
 
-//     chunk_desc *chunk = chunk_find_by_ptr(ptr);
+    return new_ptr;
+}
 
-//     if(my_try_resize(chunk, size)){
-//         return ptr; // resized!
-//     }
+void *my_realloc(void *ptr, size_t size){
+    // "If ptr is NULL, then the call is equivalent to malloc(size), for all values of size"
+    if(ptr == NULL){
+        return my_malloc(size);
+    }
 
-//     if(size > chunk->data_size){
-//         return my_try_move_to_bigger_block(chunk, size);
-//     }
+    // "if size is equal to zero, and ptr is not NULL, then the call is equivalent to free(ptr)"
+    if(size == 0 && ptr != NULL){
+        my_free(ptr);
+    }
 
-//     return NULL;
-// }
+    assert(ptr != NULL);
+
+    chunk_header *chunk = chunk_find_by_data_ptr(ptr);
+
+    if(my_try_resize(chunk, size)){
+        return ptr; // resized!
+    }
+
+    size_t old_size = get_allocator_by_ptr(chunk)->data_size(chunk);
+
+    if(size > old_size){
+        return my_move_to_bigger_block(ptr, chunk, old_size, size);
+    }
+
+    return NULL;
+}
 
 
 
