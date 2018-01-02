@@ -42,6 +42,8 @@ void *my_move_to_bigger_block(void *old_data_ptr, chunk_header *chunk, size_t ol
         memcpy(new_ptr, old_data_ptr, old_size);
     }
 
+    my_free(old_data_ptr);
+    
     return new_ptr;
 }
 

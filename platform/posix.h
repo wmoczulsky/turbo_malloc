@@ -6,5 +6,5 @@ void *allocate_memory(size_t bytes){
 }
 
 void deallocate_memory(void *addr, size_t len){
-    munmap(addr, len);
+    assert(!munmap(addr, len));
 }
