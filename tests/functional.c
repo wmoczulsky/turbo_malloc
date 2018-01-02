@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <pthread.h>
+#include <unistd.h>
+// #include
 
 /*
 The plan:
@@ -53,14 +55,14 @@ void validate_calloc(void *ptr, size_t count, size_t size){
 }
 
 void *call_malloc(size_t size){
-    void *res = malloc(size);
+    void *res = my_malloc(size);
     assert(res != NULL, "");
     validate_malloc(res, size);
     return res;
 }
 
 void *call_calloc(size_t count, size_t size){
-    void *res = calloc(count, size);
+    void *res = my_calloc(count, size);
     validate_calloc(res, count, size);
     return res;
 }
@@ -72,17 +74,18 @@ void validate_posix_memalign(int res, void **memptr, size_t alignment, size_t si
 }
 
 int call_posix_memalign(void **memptr, size_t alignment, size_t size){
-    int res = posix_memalign(memptr, alignment, size);
+    int res = my_posix_memalign(memptr, alignment, size);
     validate_posix_memalign(res, memptr, alignment, size);
     return res;
 }
 
 void *call_realloc(void *ptr, size_t size){
-    void * res = realloc(ptr, size);
-    if(res != NULL){
-        validate_malloc(res, size);
-    }
-    return res;
+    // void * res = realloc(ptr, size);
+    // if(res != NULL){
+    //     validate_malloc(res, size);
+    // }
+    // return res;
+    return NULL;
 }
 
 void call_free(void *ptr){
@@ -104,7 +107,7 @@ typedef struct {
 } alloc;
 
 
-#define NUM_THREADS 4
+#define NUM_THREADS 1
 #define _1GB 1073741824ull 
 #define _100GB (10 * _1GB)
 #define ALLOC_MAX _1GB
@@ -161,6 +164,12 @@ void fill_with_data(alloc* a){
 
 void allocate_here(alloc *a, size_t new_size){
     int r = rand() % 4;
+
+r = 0;
+
+
+
+
     if(r == 0){
         // use malloc
         if(a->size != 0){
@@ -200,12 +209,12 @@ void allocate_here(alloc *a, size_t new_size){
         a->ptr = call_calloc(new_size / size, size);
     }else{
         // use realloc
-        void * res = call_realloc(a->ptr, new_size);
-        if(res != NULL){
-            a->seed = good_rand();
-            a->size = new_size;
-            a->ptr = res;
-        }
+        // void * res = call_realloc(a->ptr, new_size);
+        // if(res != NULL){
+        //     a->seed = good_rand();
+        //     a->size = new_size;
+        //     a->ptr = res;
+        // }
     }
 }
 
