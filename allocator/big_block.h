@@ -4,6 +4,7 @@
 #include "../chunk.h"
 #include "./abstract.h"
 
+allocator big_block_allocator;
 
 typedef struct {
     size_t data_size;
@@ -17,7 +18,7 @@ void *big_block_alloc(size_t size, size_t align){
 
     size_t sum_size = sizeof(big_block_header) + align + size;
 
-    big_block_header *header = allocate_chunk(sum_size, BIG_BLOCK);
+    big_block_header *header = allocate_chunk(sum_size, &big_block_allocator);
 
     if(header == NULL){
         return NULL;

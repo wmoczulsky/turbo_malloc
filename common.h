@@ -10,8 +10,8 @@
 #include <stdbool.h>
 
 
-enum allocator_type {BIG_BLOCK};
 
+typedef struct _allocator allocator;
 
 
 

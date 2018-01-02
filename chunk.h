@@ -6,11 +6,11 @@
 // [chunk_header][....................................................................................]
 
 
-typedef struct chunk_header{
+typedef struct chunk_header {
     // this struct is always at the beginning of chunk
     size_t num_pages;
-    enum allocator_type allocator_type;
     struct chunk_header *next;
+    allocator *_; // virtual method table
 } chunk_header;
 
 
@@ -24,7 +24,7 @@ void register_chunk(chunk_header *new_ch){
     first_chunk = new_ch;
 }
 
-void *allocate_chunk(size_t min_len, enum allocator_type allocator_type){ 
+void *allocate_chunk(size_t min_len, allocator *VMD){ 
     // min_len means usable memory - except header
 
     size_t num_pages = (min_len + sizeof(chunk_header) + page_size - 1) / page_size;
@@ -32,7 +32,7 @@ void *allocate_chunk(size_t min_len, enum allocator_type allocator_type){
     chunk_header *chunk = allocate_memory(num_pages * page_size);
 
     chunk->num_pages = num_pages;
-    chunk->allocator_type = allocator_type;
+    chunk->_ = VMD;
 
     register_chunk(chunk);
 

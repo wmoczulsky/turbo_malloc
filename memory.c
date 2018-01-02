@@ -3,45 +3,35 @@
 #include "./allocator/big_block.h"
 
 
-allocator *get_allocator_by_ptr(void *ptr){
-    chunk_header *chunk = chunk_find_by_data_ptr(ptr);
-    switch(chunk->allocator_type){
-        case BIG_BLOCK:
-        return &big_block_allocator;
-    default:
-        assert(0);
-        return NULL;
-    }
-}
 
-
-allocator *get_allocator_by_size(size_t size){
+allocator *choose_allocator_by_size(size_t size){
     return &big_block_allocator;
 }
 
 
 
 void *my_alloc(size_t size, size_t align){
-
     { // ensure sizeof(void *) alignment
         assert(align % sizeof(void *) == 0); 
         size = size + sizeof(void *) - (size % sizeof(void *)); 
     }
 
-    void *ptr = get_allocator_by_size(size)->alloc(size, align); // choose allocator apropriate to size of block
+    void *ptr = choose_allocator_by_size(size)->alloc(size, align); // choose allocator apropriate to size of block
     return ptr;
 }
 
 
 void my_free(void *ptr){
     assert(ptr != NULL);
-    get_allocator_by_ptr(ptr)->free(ptr);
+    chunk_header *chunk = chunk_find_by_data_ptr(ptr);
+    assert(chunk != NULL);
+    chunk->_->free(ptr);
 }
 
 // resize tries to resize block, if moving is needed, then return false
 bool my_try_resize(chunk_header *chunk, size_t size){
     assert(chunk != NULL);
-    return get_allocator_by_ptr(chunk)->try_resize(chunk, size);
+    return chunk->_->try_resize(chunk, size);
 }
 
 void *my_move_to_bigger_block(void *old_data_ptr, chunk_header *chunk, size_t old_size, size_t size){
@@ -73,7 +63,7 @@ void *my_realloc(void *ptr, size_t size){
         return ptr; // resized!
     }
 
-    size_t old_size = get_allocator_by_ptr(chunk)->data_size(chunk);
+    size_t old_size = chunk->_->data_size(chunk);
 
     if(size > old_size){
         return my_move_to_bigger_block(ptr, chunk, old_size, size);

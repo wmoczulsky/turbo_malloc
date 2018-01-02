@@ -207,19 +207,19 @@ void allocate_here(alloc *a, size_t new_size){
         size_t old_size = a->ptr != NULL ? a->size : 0;
         void * res = call_realloc(a->ptr, new_size);
 
-        if(a->ptr != NULL  && old_size < new_size){
-            printf("calling realloc in order to extend space\n");
-        }else if(a->ptr != NULL ){
-            printf("calling realloc in order to shrink space\n");
-        }
+        // if(a->ptr != NULL  && old_size < new_size){
+        //     printf("calling realloc in order to extend space\n");
+        // }else if(a->ptr != NULL ){
+        //     printf("calling realloc in order to shrink space\n");
+        // }
 
         if(a->ptr != NULL  && res != NULL){
             a->seed = good_rand();
             a->size = new_size;
             a->ptr = res;
-            printf("realloc succedeed\n");
+            // printf("realloc succedeed\n");
         }else if(a->ptr != NULL ){
-            printf("realloc returned NULL\n");
+            // printf("realloc returned NULL\n");
         }
     }
 }
