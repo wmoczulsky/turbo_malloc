@@ -7,6 +7,13 @@
 #include <sys/mman.h>
 #include <assert.h>
 #include <stdio.h>
+#include <stdbool.h>
+
+
+enum allocator_type {BIG_BLOCK};
+
+
+
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__) 
     #error Unimplemented yet

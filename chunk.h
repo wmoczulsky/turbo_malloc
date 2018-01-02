@@ -2,14 +2,13 @@
 
 #include "./common.h"
 
-enum allocator_type {BIG_BLOCK};
 
 typedef struct chunk_desc{
     // this struct is always at the beginning of chunk
     size_t num_pages;
     enum allocator_type allocator_type;
     struct chunk_desc *next;
-    void *data_ptr;
+
 } chunk_desc;
 
 
@@ -24,17 +23,6 @@ void register_chunk(chunk_desc *new_ch){
     new_ch->next = first_chunk;
     first_chunk = new_ch;
 }
-
-chunk_desc *find_chunk_by_data_ptr(void *data_ptr){
-    assert(first_chunk != NULL);
-    chunk_desc *i = first_chunk;
-    while(i->data_ptr != data_ptr){
-        i = i->next;
-        assert(i != NULL);
-    }
-    return i;
-}
-
 void unregister_chunk(chunk_desc *which){
     if(first_chunk == which){
         first_chunk = first_chunk->next;
@@ -51,6 +39,17 @@ void unregister_chunk(chunk_desc *which){
     i->next = i->next->next;
 }
 
+
+
+chunk_desc *chunk_find_by_data_ptr(void *data_ptr){
+    assert(first_chunk != NULL);
+    chunk_desc *i = first_chunk;
+    while(data_ptr < (void *)i || data_ptr > (void *)i + i->num_pages * page_size){
+        i = i->next;
+        assert(i != NULL);
+    }
+    return i;
+}
 
 
 

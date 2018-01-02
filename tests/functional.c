@@ -80,12 +80,11 @@ int call_posix_memalign(void **memptr, size_t alignment, size_t size){
 }
 
 void *call_realloc(void *ptr, size_t size){
-    // void * res = realloc(ptr, size);
-    // if(res != NULL){
-    //     validate_malloc(res, size);
-    // }
-    // return res;
-    return NULL;
+    void * res = my_realloc(ptr, size);
+    if(res != NULL){
+        validate_malloc(res, size);
+    }
+    return res;
 }
 
 void call_free(void *ptr){
@@ -205,12 +204,23 @@ void allocate_here(alloc *a, size_t new_size){
         a->ptr = call_calloc(new_size / size, size);
     }else{
         // use realloc
-        // void * res = call_realloc(a->ptr, new_size);
-        // if(res != NULL){
-        //     a->seed = good_rand();
-        //     a->size = new_size;
-        //     a->ptr = res;
-        // }
+        size_t old_size = a->ptr != NULL ? a->size : 0;
+        void * res = call_realloc(a->ptr, new_size);
+
+        if(old_size < new_size){
+            printf("calling realloc in order to extend space\n");
+        }else{
+            printf("calling realloc in order to shrink space\n");
+        }
+
+        if(res != NULL){
+            a->seed = good_rand();
+            a->size = new_size;
+            a->ptr = res;
+            printf("realloc succedeed\n");
+        }else{
+            printf("realloc returned NULL\n");
+        }
     }
 }
 
