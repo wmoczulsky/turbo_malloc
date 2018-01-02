@@ -17,6 +17,11 @@ void *my_alloc(size_t size, size_t align){
 }
 
 
+void my_free(void *ptr){
+    chunk_desc *chunk = find_chunk_by_data_ptr(ptr);
+    big_block_free(chunk);
+}
+
 
 
 

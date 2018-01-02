@@ -90,7 +90,7 @@ void *call_realloc(void *ptr, size_t size){
 
 void call_free(void *ptr){
     assert(ptr != NULL, "trying to free(NULL)");
-    free(ptr);
+    my_free(ptr);
 }
 
 
