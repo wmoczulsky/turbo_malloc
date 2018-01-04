@@ -11,6 +11,8 @@ typedef struct chunk_header {
     size_t num_pages;
     struct chunk_header *next;
     allocator *_; // virtual method table
+
+    PUT_CANARY(chunk_header);
 } chunk_header;
 
 
@@ -43,6 +45,7 @@ void *allocate_chunk(size_t min_len, allocator *VMD){
 
 
 void unregister_chunk(chunk_header *which){
+    CHECK_CANARY(which, chunk_header);
     if(first_chunk == which){
         first_chunk = first_chunk->next;
         return;
@@ -60,6 +63,7 @@ void unregister_chunk(chunk_header *which){
 
 
 void free_chunk(chunk_header *which){
+    CHECK_CANARY(which, chunk_header);
 
     unregister_chunk(which);
     deallocate_memory(which, which->num_pages * page_size);
@@ -74,6 +78,8 @@ chunk_header *chunk_find_by_data_ptr(void *data_ptr){
         i = i->next;
         assert(i != NULL);
     }
+
+    CHECK_CANARY(i, chunk_header);
     return i;
 }
 

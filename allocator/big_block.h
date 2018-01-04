@@ -8,13 +8,16 @@ allocator big_block_allocator;
 
 typedef struct {
     size_t data_size;
-    // void *data_ptr;
+
+    PUT_CANARY(big_block_header);
 } big_block_header;
 
 
 void *big_block_alloc(size_t size, size_t align){
     // layout inside chunk:
     // [big_block_header][?align?][     d       a       t       a     ]
+
+    // todo better padding calc
 
     size_t sum_size = sizeof(big_block_header) + align + size;
 
@@ -25,7 +28,6 @@ void *big_block_alloc(size_t size, size_t align){
     }
 
     header->data_size = size;
-    // header->data_ptr
 
     void *header_end = (void *)header + sizeof(big_block_header);
 
@@ -44,9 +46,10 @@ bool big_block_try_resize(void *ptr, size_t new_size){
     return false; // not implemented for this kind of allocation
 }
 
-size_t data_size(chunk_header *ptr){
+size_t big_block_data_size(chunk_header *ptr){
     assert(ptr != NULL);
     big_block_header *hdr = (void *)ptr + sizeof(chunk_header);
+    CHECK_CANARY(hdr, big_block_header);
     return hdr->data_size;
 }
 
@@ -54,5 +57,5 @@ allocator big_block_allocator = {
     .alloc = big_block_alloc,
     .free = big_block_free,
     .try_resize = big_block_try_resize,
-    .data_size = data_size
+    .data_size = big_block_data_size
 };

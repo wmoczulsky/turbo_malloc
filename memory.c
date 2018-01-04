@@ -6,6 +6,9 @@
 
 
 allocator *choose_allocator_by_size(size_t size){
+    if(size <= 1024){
+        return &bitmap_allocator;
+    }
     return &big_block_allocator;
 }
 
@@ -22,14 +25,14 @@ void *my_alloc(size_t size, size_t align){
 }
 
 
-void my_free(void *ptr){
+extern void my_free(void *ptr){
     assert(ptr != NULL);
     chunk_header *chunk = chunk_find_by_data_ptr(ptr);
     assert(chunk != NULL);
     chunk $ free(ptr);
 }
 
-// resize tries to resize block, if moving is needed, then return false
+// resize tries to resize block, if moving is needed, then returns false
 bool my_try_resize(chunk_header *chunk, size_t size){
     assert(chunk != NULL);
     return chunk $ try_resize(chunk, size);
@@ -43,11 +46,11 @@ void *my_move_to_bigger_block(void *old_data_ptr, chunk_header *chunk, size_t ol
     }
 
     my_free(old_data_ptr);
-    
+
     return new_ptr;
 }
 
-void *my_realloc(void *ptr, size_t size){
+extern void *my_realloc(void *ptr, size_t size){
     // "If ptr is NULL, then the call is equivalent to malloc(size), for all values of size"
     if(ptr == NULL){
         return my_malloc(size);
@@ -68,7 +71,7 @@ void *my_realloc(void *ptr, size_t size){
 
     size_t old_size = chunk $ data_size(chunk);
 
-    if(size > old_size){
+    if(old_size != 0 && size > old_size){
         return my_move_to_bigger_block(ptr, chunk, old_size, size);
     }
 
