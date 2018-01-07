@@ -24,6 +24,7 @@ typedef struct bitmap_region {
     struct bitmap_region *next;
     uint64_t root;
     uint64_t leafs[64];
+    size_t allocs_count;
 
     CANARY_END; 
 } bitmap_region;
@@ -68,6 +69,8 @@ void *bitmap_give_memory(bitmap_region* region, void *addr, size_t cells){
             region->root &= ~(1llu << (63 - leaf_nr));
         }
     }
+
+    region->allocs_count += 1;
     return addr;
 }
 
@@ -114,12 +117,16 @@ void *bitmap_find_place_in_region(bitmap_region *region, size_t cells, size_t al
     return NULL;
 }
 
-
-bitmap_region *bitmap_make_new_region(){
+size_t get_chunk_header_shift(){
     // ensure our pointer will be 16 - bytes aligned
     // so ptr + sizeof(bitmap_region) + n * (16 * x + sizeof(bitmap_entry)) == 16
-    // ptr + sizeof(bitmap_region) + n * (sizeof(bitmap_entry)) == 16  
-    let shift = 16 - (sizeof(chunk_header) + sizeof(bitmap_entry)) % 16;
+    // ptr + sizeof(bitmap_region) + n * (sizeof(bitmap_entry)) == 16 
+    return 16 - (sizeof(chunk_header) + sizeof(bitmap_entry)) % 16;
+}
+
+bitmap_region *bitmap_make_new_region(){
+ 
+    let shift = get_chunk_header_shift();
     let chunk_header_size = sizeof(chunk_header) + shift;
 
 
@@ -194,12 +201,51 @@ void *bitmap_alloc(size_t size, size_t align){
         align = 16; // align is power of 2
     }
     bitmap_entry *place = bitmap_find_place(size, align);
-    printf("%p %u %u\n", place, size, align);
     return (void *)place + sizeof(bitmap_entry);
 }
 
 void bitmap_free(void *ptr){
+    chunk_header *chunk = chunk_find_by_data_ptr(ptr);
+    bitmap_region *region = (void *)chunk + sizeof(chunk_header) + get_chunk_header_shift();
+    CHECK_CANARY(region, bitmap_region);
 
+    // mark as unused 
+    bitmap_entry *entry = ptr - sizeof(bitmap_entry);
+    let cells = entry->cells;
+
+    let cell_i = (ptr - (void *)region) / 16;
+    for(let cell = cell_i; cell < cell_i + cells; cell++){
+        let leaf_nr = cell / 64;
+
+        let cell_in_leaf = cell % 64;
+
+        // mark leaf cells as unused
+        assert(bitmap_get_bit(cell_in_leaf, region->leafs[leaf_nr]) == 0);
+        region->leafs[leaf_nr] |= 1llu << (63 - cell_in_leaf);
+        assert(bitmap_get_bit(cell_in_leaf, region->leafs[leaf_nr]) == 1);
+
+        
+        region->root |= 1llu << (63 - leaf_nr);
+    }
+
+
+
+    region->allocs_count -= 1;
+
+
+    // and maybe dealloc
+    if(region->allocs_count == 2){
+        // two allocations means chunk and region headers
+        bitmap_region *prev = bitmap_first_region;
+        while(prev->next != region){
+            assert(prev->next != NULL);
+            prev = prev->next;
+        }
+
+        assert(prev->next->next == region->next);
+        prev->next = prev->next->next;
+        free_chunk(chunk);
+    }
 }
 
 bool bitmap_try_resize(void *ptr, size_t new_size){
