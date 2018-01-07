@@ -23,8 +23,9 @@ The plan:
 
 void assert(bool a, char * msg){
     if(!a){
-        printf("%s\n", msg);
-        exit(1);
+        printf("Error while: %s\n", msg);
+        fflush(stdout);
+        exit(23);
     }
 }
 
@@ -56,7 +57,7 @@ void validate_calloc(void *ptr, size_t count, size_t size){
 
 void *call_malloc(size_t size){
     void *res = my_malloc(size);
-    assert(res != NULL, "");
+    assert(res != NULL, "call_malloc");
     validate_malloc(res, size);
     return res;
 }
@@ -128,7 +129,8 @@ size_t rand_alloc_size(){
 
     r = (2211222ull*r*r - 1304302ull*r + 47585ull) ;
     r = abs(r);
-    return r+1;
+    // return r+1;
+    return 1 + r / 100; // for testing bitmap
 }
 
 
@@ -144,7 +146,7 @@ void init(){
 void check_and_free(alloc* a){
     uint8_t data = a->seed;
     for(uint8_t * i = a->ptr; i != (uint8_t *)a->ptr + a->size; i++){
-        assert(*i == data, "data stored in memory was changed");
+        assert(*i == data, "data stored in memory has been changed");
         data ++;
     }
 
@@ -204,7 +206,7 @@ void allocate_here(alloc *a, size_t new_size){
         a->ptr = call_calloc(new_size / size, size);
     }else{
         // use realloc
-        size_t old_size = a->ptr != NULL ? a->size : 0;
+        // size_t old_size = a->ptr != NULL ? a->size : 0;
         void * res = call_realloc(a->ptr, new_size);
 
         // if(a->ptr != NULL  && old_size < new_size){
@@ -256,22 +258,26 @@ void *test(void * a){
     return NULL;
 }
 
-pthread_t tid[NUM_THREADS];
 
 
 int main(){
     // srand(EAGAIN); // deterministic
     // srand(malloc(time())); // semi-deterministic
     // srand(fork()); // wtf?
-    srand(getpagesize());
+    srand(getpagesize()+1);
 
-    for(int i = 0; i < NUM_THREADS; i++){
-        pthread_create(&(tid[i]), NULL, &test, NULL);
-    }
+    #if NUM_THREADS != 1 && !(defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__))
+        pthread_t tid[NUM_THREADS];
 
-    for(int i = 0; i < NUM_THREADS; i++){
-        void * retval;
-        pthread_join(tid[i], &retval);
-    }
-    // test();
+        for(int i = 0; i < NUM_THREADS; i++){
+            pthread_create(&(tid[i]), NULL, &test, NULL);
+        }
+
+        for(int i = 0; i < NUM_THREADS; i++){
+            void * retval;
+            pthread_join(tid[i], &retval);
+        }
+    #else
+        test(NULL);
+    #endif
 }

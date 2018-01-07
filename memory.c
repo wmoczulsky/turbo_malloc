@@ -1,14 +1,22 @@
+#define NDEBUG
+
+
 #include "./common.h"
 #include "./memory.h"
 #include "./allocator/big_block.h"
+#include "./allocator/bitmap.h"
 
 #define $ ->_->
 
 
 allocator *choose_allocator_by_size(size_t size){
-    if(size <= 1024){
+    if(size <= 4064){    
+        printf("bitmap\n");
+
         return &bitmap_allocator;
     }
+        printf("block\n");
+
     return &big_block_allocator;
 }
 
@@ -21,6 +29,7 @@ void *my_alloc(size_t size, size_t align){
     }
 
     void *ptr = choose_allocator_by_size(size)->alloc(size, align); // choose allocator apropriate to size of block
+    // printf("%d %d %p \n",size, align, ptr);
     return ptr;
 }
 

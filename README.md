@@ -17,5 +17,4 @@
 
 
 
-
 Because of some assumpions and numerous undefined behaviour, please use gcc version 5.4.0 in case of problems.

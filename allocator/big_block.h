@@ -7,9 +7,11 @@
 allocator big_block_allocator;
 
 typedef struct {
-    size_t data_size;
+    CANARY_START; 
 
-    PUT_CANARY(big_block_header);
+    size_t data_size;
+    
+    CANARY_END; 
 } big_block_header;
 
 
@@ -19,7 +21,7 @@ void *big_block_alloc(size_t size, size_t align){
 
     // todo better padding calc
 
-    size_t sum_size = sizeof(big_block_header) + align + size;
+    size_t sum_size = sizeof(big_block_header) + align + size; //TODO to jest potęga 2!!!!
 
     big_block_header *header = allocate_chunk(sum_size, &big_block_allocator);
 
@@ -28,6 +30,8 @@ void *big_block_alloc(size_t size, size_t align){
     }
 
     header->data_size = size;
+
+    INIT_CANARY(header, big_block_header);
 
     void *header_end = (void *)header + sizeof(big_block_header);
 

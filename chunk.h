@@ -2,17 +2,19 @@
 
 #include "./common.h"
 
-// Chunk example:
+// Chunk layout:
 // [chunk_header][....................................................................................]
 
 
 typedef struct chunk_header {
     // this struct is always at the beginning of chunk
+    CANARY_START; 
+
     size_t num_pages;
     struct chunk_header *next;
     allocator *_; // virtual method table
 
-    PUT_CANARY(chunk_header);
+    CANARY_END; 
 } chunk_header;
 
 
@@ -29,10 +31,11 @@ void register_chunk(chunk_header *new_ch){
 void *allocate_chunk(size_t min_len, allocator *VMD){ 
     // min_len means usable memory - except header
 
+
     size_t num_pages = (min_len + sizeof(chunk_header) + page_size - 1) / page_size;
 
     chunk_header *chunk = allocate_memory(num_pages * page_size);
-
+    INIT_CANARY(chunk, chunk_header);
     chunk->num_pages = num_pages;
     chunk->_ = VMD;
 
@@ -73,6 +76,7 @@ void free_chunk(chunk_header *which){
 
 chunk_header *chunk_find_by_data_ptr(void *data_ptr){
     assert(first_chunk != NULL);
+    assert(data_ptr != NULL);
     chunk_header *i = first_chunk;
     while(data_ptr < (void *)i || data_ptr > (void *)i + i->num_pages * page_size){
         i = i->next;
@@ -89,6 +93,8 @@ void some_asserts(){
     assert(sizeof(chunk_header) % sizeof(void *) == 0);
 }
 
+
+// todo macro for constructors
 __attribute__((constructor)) void chunker_init(){
     page_size = sysconf(_SC_PAGESIZE);
     some_asserts();
