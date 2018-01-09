@@ -143,17 +143,39 @@ ff_block *ff_find_free_block_to_alloc(size_t size, size_t align){
     return block;
 }
 
-void ff_split_free_block(ff_block *block, size_t size){
-    //TODO
+void ff_split_free_block_if_profitable(ff_block *block, size_t alloc_size){
+    CHECK_CANARY(block, ff_block);
+    assert(ff_is_block_free(block));
+
+    let old_size = ff_get_block_size(block);
+    let new_left_block_size = alloc_size + sizeof(ff_block);
+    let new_right_block_size = old_size - new_left_block_size;
+
+    if(old_size < new_left_block_size || new_right_block_size < sizeof(ff_block)){
+        // not profitable, maybe not even possible
+        return;
+    }
+
+    ff_block *new_block = (void *)block + new_left_block_size;
+    INIT_CANARY(new_block, ff_block);
+
+    ff_set_block_size(block, new_left_block_size);
+    ff_set_block_size(new_block, new_right_block_size);
+
+    ff_block_set_is_free(new_block, true);
+
+
+    ff_block *next_free = block->free_block_data.next_free;
+
+    block->free_block_data.next_free = new_block;
+    new_block->free_block_data.next_free = next_free;
+    new_block->free_block_data.prev_free = block;
 }
 
 void ff_mark_as_used(ff_block *block, size_t size){
     CHECK_CANARY(block, ff_block);
 
-    if(ff_get_block_size(block) - size > sizeof(ff_block)){
-        // this is to split block
-        ff_split_free_block(block, size);
-    }
+    ff_split_free_block_if_profitable(block, size);
 
     assert(ff_get_block_size(block) >= size);
     assert(ff_is_block_free(block));
