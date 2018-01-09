@@ -23,7 +23,6 @@ typedef struct _allocator allocator;
 // I boldly assume, that gcc always interns string literals, 
 // so I can use string ptr as canary value, which is much simpler 
 // than converting string into an int compile-time
-#define C(A, B) A B
 #ifndef NDEBUG
     #define CANARY_START char *canary_start ;
     #define CANARY_END char *canary_end ;

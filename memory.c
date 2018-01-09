@@ -5,18 +5,23 @@
 #include "./memory.h"
 #include "./allocator/big_block.h"
 #include "./allocator/bitmap.h"
+#include "./allocator/ff.h"
 
 #define $ ->_->
 
 
 allocator *choose_allocator_by_size(size_t size){
-    if(size <= 4064){    
-        printf("bitmap\n");
+    // if(size <= 512){
+    //     return &bittmap_allocator;
+    // printf("bm\n");
+    // }
 
-        return &bitmap_allocator;
+    if(size <= 7 * 4096){
+    printf("ff\n");
+        return &ff_allocator;
     }
-        printf("block\n");
 
+    printf("bb\n");
     return &big_block_allocator;
 }
 
@@ -96,7 +101,9 @@ extern void *my_malloc(size_t size){
 extern void *my_calloc(size_t count, size_t size){
     size *= count;
     void *mem = my_alloc(size, sizeof(void *));
-    memset(mem, 0, size);
+    if(mem != NULL){
+        memset(mem, 0, size);
+    }
     return mem;
 }
 

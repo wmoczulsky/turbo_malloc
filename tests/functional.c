@@ -129,8 +129,8 @@ size_t rand_alloc_size(){
 
     r = (2211222ull*r*r - 1304302ull*r + 47585ull) ;
     r = abs(r);
-    // return r+1;
-    return 1 + r / 100; // for testing bitmap
+    return r+1;
+    // return 1 + r / 1; // for testing bitmap
 }
 
 
@@ -264,7 +264,7 @@ int main(){
     // srand(EAGAIN); // deterministic
     // srand(malloc(time())); // semi-deterministic
     // srand(fork()); // wtf?
-    srand(getpagesize()+1);
+    srand(getpagesize()+13);
 
     #if NUM_THREADS != 1 && !(defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__))
         pthread_t tid[NUM_THREADS];
