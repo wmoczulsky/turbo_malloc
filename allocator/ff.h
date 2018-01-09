@@ -34,7 +34,7 @@ typedef struct ff_region {
 
     struct ff_region *next;
     struct ff_block *first_free;
-    // each ff_region has exacly size of 8 pages - sizeof(ff_region)
+    // each ff_region has exacly size of 1 page - sizeof(chunk_header)
 
     // everybody knows where is first block...
 
@@ -61,8 +61,15 @@ void ff_block_set_is_free(ff_block *block, bool value){
     block->size_and_free = (block->size_and_free & 0xFFFE) + value;
 }
 
+ff_region *ff_get_region_by_block(ff_block *block){
+    CHECK_CANARY(block, ff_block);
+    ff_region *region = (void *)((size_t)block - ((size_t)block % getpagesize()) + sizeof(chunk_header));
+    CHECK_CANARY(region, ff_region);
+    return region;
+}
+
 ff_region *ff_new_region(){
-    ff_region *new_region = allocate_chunk(8 * getpagesize() - sizeof(chunk_header), &ff_allocator);
+    ff_region *new_region = allocate_chunk(getpagesize() - sizeof(chunk_header), &ff_allocator);
 
     new_region->next = ff_first_region;
     ff_first_region = new_region;
@@ -74,7 +81,7 @@ ff_region *ff_new_region(){
     new_region->first_free = block;
     ff_block_set_is_free(block, true);
     INIT_CANARY(block, ff_block);
-    ff_set_block_size(block, 8 * getpagesize() - sizeof(chunk_header) - sizeof(ff_region));
+    ff_set_block_size(block, getpagesize() - sizeof(chunk_header) - sizeof(ff_region));
 
     return new_region;
 }
@@ -121,6 +128,7 @@ ff_block *ff_find_free_block_to_alloc(size_t size, size_t align){
     while(region != NULL){
         ff_block *block = ff_find_free_block_in_region(region, size, align);
         if(block != NULL){
+            printf("%p\n", block);
             CHECK_CANARY(block, ff_block);
             return block;
         }
@@ -129,6 +137,9 @@ ff_block *ff_find_free_block_to_alloc(size_t size, size_t align){
 
     region = ff_new_region();
     ff_block *block = ff_find_free_block_in_region(region, size, align);
+                printf("%p\n", block);
+
+    CHECK_CANARY(block, ff_block);
     return block;
 }
 
@@ -148,20 +159,27 @@ void ff_mark_as_used(ff_block *block, size_t size){
     assert(ff_is_block_free(block));
 
     ff_set_block_size(block, size);
+    
     ff_block_set_is_free(block, false);
 
     ff_block *prev_free = block->free_block_data.prev_free;
     ff_block *next_free = block->free_block_data.next_free;
 
-    if(prev_free != NULL)
+    if(prev_free != NULL){
         prev_free->free_block_data.next_free = next_free;
+    }else{
+        ff_region *region = ff_get_region_by_block(block);
+        region->first_free = next_free;
+    }
 
     if(next_free != NULL)
-    next_free->free_block_data.prev_free = prev_free;
+        next_free->free_block_data.prev_free = prev_free;
 }
 
 
 void *ff_alloc(size_t size, size_t align){
+    assert(size <= getpagesize() - sizeof(chunk_header) - sizeof(ff_region));
+
     if(size < sizeof(((ff_block *)0)->free_block_data)){
         size = sizeof(((ff_block *)0)->free_block_data); // this makes it possible to mark this block as free in future
     }
@@ -176,7 +194,7 @@ void *ff_alloc(size_t size, size_t align){
 
     ff_mark_as_used(block, size + shift);
 
-    return (void *)block + shift;
+    return (void *)block->data + shift;
 }
 
 void ff_free(void *ptr){
