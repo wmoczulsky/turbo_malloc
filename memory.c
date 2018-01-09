@@ -17,11 +17,11 @@ allocator *choose_allocator_by_size(size_t size){
     // }
 
     if(size <=  3000){
-    printf("ff\n");
+    // printf("ff\n");
         return &ff_allocator;
     }
 
-    printf("bb\n");
+    // printf("bb\n");
     return &big_block_allocator;
 }
 
@@ -32,7 +32,7 @@ void *my_alloc(size_t size, size_t align){
         assert(align % sizeof(void *) == 0); 
         size = size + sizeof(void *) - (size % sizeof(void *)); 
     }
-    printf("size: %u align: %u\n", size, align);
+    // printf("size: %u align: %u\n", size, align);
     void *ptr = choose_allocator_by_size(size)->alloc(size, align); // choose allocator apropriate to size of block
     printf("%d %d %p \n\n\n\n", size, align, ptr);
     return ptr;
