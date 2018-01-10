@@ -8,8 +8,10 @@
 
 allocator ff_allocator;
 
+// TODO boundary tag
+
 struct free_block_data {
-    struct ff_block *prev_free;
+    struct ff_block *prev_free; // todo shorter numbers instead of ptrs
     struct ff_block *next_free;
 };
 
@@ -68,6 +70,38 @@ ff_region *ff_get_region_by_ptr(void *ptr){
     return region;
 }
 
+
+void ____________________________ff_assert_free_list_is_ok(void *ptr){
+    // slow, but sometimes necessary ;/
+    ff_region *region = ff_get_region_by_ptr(ptr);
+    ff_block *i = region->first_free;
+    int a = 0;
+    ff_block *j = NULL;
+    while(i != NULL){
+        j = i;
+        // printf("iteration %d\n", a++);
+        // printf("forward: %p\n", i);
+        assert(i->free_block_data.prev_free < i);
+        // printf("%p %p \n", i, i->free_block_data.prev_free );
+        assert(i->free_block_data.prev_free == NULL || (size_t)i->free_block_data.prev_free/getpagesize()== (size_t)i/getpagesize());
+        assert(ff_is_block_free(i));
+        i = i->free_block_data.next_free;
+    }
+
+
+    // navigate left to check if links are ok
+    i = j;
+    while(i != NULL){
+        // printf("backwards: %p\n", i);
+        j = i;
+        i = i->free_block_data.prev_free;
+    }
+    printf("-------> j %p ff %p\n", j, region->first_free);
+
+    assert(j == NULL || j == region->first_free);
+}
+
+
 ff_region *ff_new_region(){
     ff_region *new_region = allocate_chunk(getpagesize() - sizeof(chunk_header), &ff_allocator);
 
@@ -112,9 +146,9 @@ ff_block *ff_find_free_block_in_region(ff_region *region, size_t size, size_t al
     ff_block *block = region->first_free;
 
     while(block != NULL){
-        assert(block < 1llu<<48); // it is ptr, not random value
+        assert(ff_is_block_free(block));
 
-        if(ff_is_block_free(block) && ff_block_is_spacious_enough(block, size, align)){
+        if(ff_block_is_spacious_enough(block, size, align)){
             return block;
         }
 
@@ -144,7 +178,34 @@ ff_block *ff_find_free_block_to_alloc(size_t size, size_t align){
     return block;
 }
 
+
+void ff_set_block_as_free_and_update_list(ff_block *block, ff_block *prev_free, ff_block *next_free){
+    assert(prev_free < 1llu<<48); // it is ptr, not random value
+    assert(next_free < 1llu<<48); // it is ptr, not random value
+
+    assert(prev_free < block || prev_free == NULL);
+    assert(next_free > block || next_free == NULL);
+
+
+    ff_block_set_is_free(block, true);
+
+    block->free_block_data.prev_free = prev_free;
+    block->free_block_data.next_free = next_free;
+
+    if(prev_free != NULL) 
+        prev_free->free_block_data.next_free = block;
+
+    if(next_free != NULL)
+        next_free->free_block_data.prev_free = block;
+
+    if(prev_free == NULL){
+        ff_get_region_by_ptr(block)->first_free = block;
+    }
+}
+
+
 void ff_split_free_block_if_profitable(ff_block *block, size_t alloc_size){
+    ____________________________ff_assert_free_list_is_ok(block);
     CHECK_CANARY(block, ff_block);
     assert(ff_is_block_free(block));
 
@@ -170,24 +231,27 @@ void ff_split_free_block_if_profitable(ff_block *block, size_t alloc_size){
     ff_set_block_size(block, new_left_block_size);
     ff_set_block_size(new_block, new_right_block_size);
 
-    ff_block_set_is_free(new_block, true);
 
+    ff_block_set_is_free(new_block, true);
 
     ff_block *next_free = block->free_block_data.next_free;
 
-    block->free_block_data.next_free = new_block;
-    new_block->free_block_data.next_free = next_free;
-    new_block->free_block_data.prev_free = block;
+    ff_set_block_as_free_and_update_list(new_block, block, next_free);
+
+
+    ____________________________ff_assert_free_list_is_ok(block);
 }
 
 void ff_mark_as_used(ff_block *block, size_t alloc_size){
+    ____________________________ff_assert_free_list_is_ok(block);
     CHECK_CANARY(block, ff_block);
 
     assert(ff_get_block_size(block) >= alloc_size);
     assert(ff_get_block_size(block) >= alloc_size + sizeof(ff_block) - sizeof(struct free_block_data));
     ff_split_free_block_if_profitable(block, alloc_size);
 
-    printf("%u %u\n", ff_get_block_size(block) , alloc_size);
+    ____________________________ff_assert_free_list_is_ok(block);
+    printf("fs %u %u\n", ff_get_block_size(block) , alloc_size);
     assert(ff_get_block_size(block) >= alloc_size);
     assert(ff_is_block_free(block));
     
@@ -195,6 +259,14 @@ void ff_mark_as_used(ff_block *block, size_t alloc_size){
 
     ff_block *prev_free = block->free_block_data.prev_free;
     ff_block *next_free = block->free_block_data.next_free;
+
+    printf("b: %p pr: %p nx: %p ff:%p ffp:%p ff:n%p \n", block, prev_free, next_free, 
+        ff_get_region_by_ptr(block)->first_free, 
+        ff_get_region_by_ptr(block)->first_free->free_block_data.prev_free,
+        ff_get_region_by_ptr(block)->first_free->free_block_data.next_free
+        );
+    assert(prev_free < block || prev_free == NULL);
+    assert(next_free > block || next_free == NULL);
 
     if(prev_free != NULL){
         prev_free->free_block_data.next_free = next_free;
@@ -205,6 +277,10 @@ void ff_mark_as_used(ff_block *block, size_t alloc_size){
 
     if(next_free != NULL)
         next_free->free_block_data.prev_free = prev_free;
+
+    ____________________________ff_assert_free_list_is_ok(block);
+
+
 }
 
 
@@ -224,13 +300,17 @@ void *ff_alloc(size_t size, size_t align){
     let shift = ff_calc_shift(block->data, align);
     // printf("\n");
     printf("a %u %d\n",ff_get_block_size(block),  size + shift);
+        ____________________________ff_assert_free_list_is_ok(block);
+
     ff_mark_as_used(block, size + shift);
+    ____________________________ff_assert_free_list_is_ok(block);
 
     for(size_t i = 0; i < shift; i++){
         // please read long comment several lines below
         *((uint8_t *)block->data + i) = 0xFF;
     }
 
+    ____________________________ff_assert_free_list_is_ok(block);
     return (void *)block->data + shift;
 }
 
@@ -261,7 +341,7 @@ ff_block *ff_get_block_by_alloc_ptr(void *ptr){
 ff_block *ff_get_previous_free(ff_block *block){
     ff_block *i = ff_get_region_by_ptr(block)->first_free;
 
-    while(i != NULL){
+    while(i != NULL && i < block){
         if(i->free_block_data.next_free == NULL || i->free_block_data.next_free > block){
             return i;
         }
@@ -285,32 +365,17 @@ ff_block *ff_get_next_free(ff_block *block){
 }
 
 void ff_free(void *ptr){
+    ____________________________ff_assert_free_list_is_ok(ptr);
     // ff_region *region = ff_get_region_by_ptr(ptr);
     printf("FREE %p\n", ptr);
     ff_block *block = ff_get_block_by_alloc_ptr(ptr);
 
     ff_block *prev_free = ff_get_previous_free(block);
     ff_block *next_free = prev_free == NULL ? ff_get_next_free(block) : prev_free->free_block_data.next_free;
-    printf("%p\n", prev_free);
-    assert(prev_free < 1llu<<48); // it is ptr, not random value
-    assert(next_free < 1llu<<48); // it is ptr, not random value
 
-    printf("aaa %p %p %p\n",block, prev_free, next_free);
-
-    ff_block_set_is_free(block, true);
-
-    block->free_block_data.prev_free = prev_free;
-    block->free_block_data.next_free = next_free;
-
-    if(prev_free != NULL) 
-        prev_free->free_block_data.next_free = block;
-
-    if(next_free != NULL)
-        next_free->free_block_data.prev_free = block;
-
-    if(prev_free == NULL){
-        ff_get_region_by_ptr(block)->first_free = block;
-    }
+    ff_set_block_as_free_and_update_list(block, prev_free, next_free);
+    
+    ____________________________ff_assert_free_list_is_ok(block);
 
     // ff_try_merge_with_siblings(block);   
 }
