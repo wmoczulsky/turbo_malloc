@@ -21,6 +21,7 @@ typedef struct ff_block {
     // least significant bit tells if block is free
     // rest of bits (15-bit unsigned int) tells size including this header 
     uint16_t size_and_free; 
+    uint16_t size_of_previous_block; 
 
     CANARY_END; 
 
@@ -58,6 +59,14 @@ bool ff_is_block_free(ff_block *block){
 void ff_set_block_size(ff_block *block, size_t size){
     assert(size >= sizeof(ff_block));
     block->size_and_free = (block->size_and_free & 1) | (size << 1);
+    // update next block data:
+    ff_block *next_block = (void *)block + ff_get_block_size(block);
+    if((size_t)next_block / getpagesize() == (size_t)block / getpagesize()){
+        // next block really exists
+        CHECK_CANARY(next_block, ff_block);
+
+        next_block->size_of_previous_block = size;
+    }
 }
 
 void ff_block_set_is_free(ff_block *block, bool value){
@@ -72,33 +81,33 @@ ff_region *ff_get_region_by_ptr(void *ptr){
 
 
 void ____________________________ff_assert_free_list_is_ok(void *ptr){
-    // slow, but sometimes necessary ;/
-    ff_region *region = ff_get_region_by_ptr(ptr);
-    ff_block *i = region->first_free;
-    int a = 0;
-    ff_block *j = NULL;
-    while(i != NULL){
-        j = i;
-        // printf("iteration %d\n", a++);
-        // printf("forward: %p\n", i);
-        assert(i->free_block_data.prev_free < i);
-        // printf("%p %p \n", i, i->free_block_data.prev_free );
-        assert(i->free_block_data.prev_free == NULL || (size_t)i->free_block_data.prev_free/getpagesize()== (size_t)i/getpagesize());
-        assert(ff_is_block_free(i));
-        i = i->free_block_data.next_free;
-    }
+    // // slow, but sometimes necessary ;/
+    // ff_region *region = ff_get_region_by_ptr(ptr);
+    // ff_block *i = region->first_free;
+    // int a = 0;
+    // ff_block *j = NULL;
+    // while(i != NULL){
+    //     j = i;
+    //     // printf("iteration %d\n", a++);
+    //     // printf("forward: %p\n", i);
+    //     assert(i->free_block_data.prev_free < i);
+    //     // printf("%p %p \n", i, i->free_block_data.prev_free );
+    //     assert(i->free_block_data.prev_free == NULL || (size_t)i->free_block_data.prev_free/getpagesize()== (size_t)i/getpagesize());
+    //     assert(ff_is_block_free(i));
+    //     i = i->free_block_data.next_free;
+    // }
 
 
-    // navigate left to check if links are ok
-    i = j;
-    while(i != NULL){
-        // printf("backwards: %p\n", i);
-        j = i;
-        i = i->free_block_data.prev_free;
-    }
-    printf("-------> j %p ff %p\n", j, region->first_free);
+    // // navigate left to check if links are ok
+    // i = j;
+    // while(i != NULL){
+    //     // printf("backwards: %p\n", i);
+    //     j = i;
+    //     i = i->free_block_data.prev_free;
+    // }
+    // printf("-------> j %p ff %p\n", j, region->first_free);
 
-    assert(j == NULL || j == region->first_free);
+    // assert(j == NULL || j == region->first_free);
 }
 
 
@@ -338,30 +347,26 @@ ff_block *ff_get_block_by_alloc_ptr(void *ptr){
     return block;
 }
 
-ff_block *ff_get_previous_free(ff_block *block){
-    ff_block *i = ff_get_region_by_ptr(block)->first_free;
+ff_block *ff_get_previous_free(ff_block *block){ /// todo get rid of these functions
+    ff_block *i = (void *)block - block->size_of_previous_block;
 
-    while(i != NULL && i < block){
-        if(i->free_block_data.next_free == NULL || i->free_block_data.next_free > block){
-            return i;
-        }
-        i = i->free_block_data.next_free;
+    while(i != NULL && !ff_is_block_free(i)){
+        CHECK_CANARY(i, ff_block);
+        i = (void *)i - i->size_of_previous_block;
     }
 
-    return NULL;
+    return i;
 }
 
 ff_block *ff_get_next_free(ff_block *block){
-    ff_block *i = ff_get_region_by_ptr(block)->first_free;
+    ff_block *i = (void *)block + ff_get_block_size(block);
 
-    while(i != NULL){
-        if(i > block){
-            return i;
-        }
-        i = i->free_block_data.next_free;
+    while(i != NULL && !ff_is_block_free(i)){
+        CHECK_CANARY(i, ff_block);
+        i = (void *)i + ff_get_block_size(i);
     }
 
-    return NULL;
+    return i;
 }
 
 void ff_free(void *ptr){
