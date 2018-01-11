@@ -306,7 +306,7 @@ void *ff_alloc(size_t size, size_t align){
 
     let shift = ff_calc_shift(block->data, align);
     // printf("\n");
-    printf("a %u %d\n",ff_get_block_size(block),  size + shift);
+    // printf("a %u %d\n",ff_get_block_size(block),  size + shift);
     
     ff_mark_as_used(block, size + shift);
 
@@ -314,6 +314,9 @@ void *ff_alloc(size_t size, size_t align){
         // please read long comment several lines below
         *((uint8_t *)block->data + i) = 0xFF;
     }
+    // according to this long comment below, this bit should always be 0.
+    // but what if paddings are injected? Let's force it.
+    *((uint8_t *)block->data - 1) &= 0xFE; 
 
     return (void *)block->data + shift;
 }
@@ -335,7 +338,7 @@ ff_block *ff_get_block_by_alloc_ptr(void *ptr){
     while(*(shift_pointer - 1) == 0xFF){
         shift_pointer -= 1;
     }
-
+    
     ff_block *block = (void *)shift_pointer - sizeof(ff_block) + sizeof(struct free_block_data);
     CHECK_CANARY(block, ff_block);
 
@@ -373,6 +376,7 @@ ff_block *ff_get_next_free(ff_block *block){
 
 void ff_merge_block_with_next(ff_block *block){
     ff_block *next = (void *)block + ff_get_block_size(block);
+    CHECK_CANARY(next, ff_block);
 
     let next_block_size = ff_get_block_size(next);
 
@@ -380,25 +384,23 @@ void ff_merge_block_with_next(ff_block *block){
     ff_mark_as_used(next, next_block_size - sizeof(ff_block) + sizeof(struct free_block_data));
 
     ff_set_block_size(block, ff_get_block_size(block) + next_block_size);
-
-    CHECK_CANARY(block, afdsf)
 }
 
 void ff_try_merge_with_siblings(ff_block *block){
-    // assert(ff_is_block_free(block));
+    assert(ff_is_block_free(block));
 
-    // ff_block *prev = (void *)block - block->size_of_previous_block;
-    // ff_block *next = (void *)block + ff_get_block_size(block);
+    ff_block *prev = (void *)block - block->size_of_previous_block;
+    ff_block *next = (void *)block + ff_get_block_size(block);
 
-    // if((size_t)prev / getpagesize() == (size_t)block / getpagesize() && ff_is_block_free(next)){
-    //     CHECK_CANARY(next, ff_block);
-    //     ff_merge_block_with_next(block);
-    // }
+    if((size_t)next / getpagesize() == (size_t)block / getpagesize() && ff_is_block_free(next)){
+        CHECK_CANARY(next, ff_block);
+        ff_merge_block_with_next(block);
+    }
 
-    // if((size_t)prev / getpagesize() == (size_t)block / getpagesize() && ff_is_block_free(prev)){
-    //     CHECK_CANARY(prev, ff_block);
-    //     ff_merge_block_with_next(prev);
-    // }
+    if((size_t)prev / getpagesize() == (size_t)block / getpagesize() && block->size_of_previous_block != 0 && ff_is_block_free(prev)){
+        CHECK_CANARY(prev, ff_block);
+        ff_merge_block_with_next(prev);
+    }
 }
 
 void ff_free(void *ptr){

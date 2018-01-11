@@ -109,7 +109,7 @@ typedef struct {
 
 #define NUM_THREADS 1
 #define _1GB 1073741824ull 
-#define _100GB (100 * _1GB)
+#define _100GB (1 * _1GB)
 #define ALLOC_MAX _1GB
 #define ALLOC_MIN 1
 #define ALLOC_AVG 250000 / NUM_THREADS
@@ -265,7 +265,7 @@ int main(){
     // srand(EAGAIN); // deterministic
     // srand(malloc(time())); // semi-deterministic
     // srand(fork()); // wtf?
-    srand(getpagesize()+1);
+    srand(getpagesize()+2231);
 
     #if NUM_THREADS != 1 && !(defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__))
         pthread_t tid[NUM_THREADS];

@@ -1,4 +1,4 @@
-// #define NDEBUG
+#define NDEBUG
 
 
 #include "./common.h"
@@ -34,7 +34,7 @@ void *my_alloc(size_t size, size_t align){
     }
     // printf("size: %u align: %u\n", size, align);
     void *ptr = choose_allocator_by_size(size)->alloc(size, align); // choose allocator apropriate to size of block
-    printf("%d %d %p \n\n\n\n", size, align, ptr);
+    // printf("%d %d %p \n\n\n\n", size, align, ptr);
     return ptr;
 }
 
