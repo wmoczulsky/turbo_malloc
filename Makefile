@@ -7,7 +7,7 @@ main: main.c memory.o
 	$(CC) $(CFLAGS) -g main.c memory.o -o main
 
 memory.o: memory.c memory.h
-	$(CC) $(CFLAGS) -g -c memory.c -o memory.o 
+	$(CC) $(CFLAGS) -g  -c memory.c -o memory.o 
 
 clean:
 	rm -f main *.o *~ *.so ./test

@@ -8,8 +8,6 @@
 
 allocator ff_allocator;
 
-// TODO boundary tag
-
 struct free_block_data {
     struct ff_block *prev_free; // todo shorter numbers instead of ptrs
     struct ff_block *next_free;
@@ -216,18 +214,47 @@ void ff_set_block_as_free_and_update_list(ff_block *block, ff_block *prev_free, 
 }
 
 
-void ff_split_free_block_if_profitable(ff_block *block, size_t alloc_size){
-    CHECK_CANARY(block, ff_block);
-    assert(ff_is_block_free(block));
+ff_block *ff_get_previous_free(ff_block *block){ 
+    ff_block *i = (void *)block - block->size_of_previous_block;
 
+    while(!ff_is_block_free(i)){
+        CHECK_CANARY(i, ff_block);
+        if(i->size_of_previous_block == 0){
+            return NULL;
+        }
+        i = (void *)i - i->size_of_previous_block;
+    }
+
+    return i;
+}
+
+ff_block *ff_get_next_free(ff_block *block){
+    ff_block *i = (void *)block + ff_get_block_size(block);
+
+    while((size_t)i / getpagesize() == (size_t)block / getpagesize() && !ff_is_block_free(i)){
+        CHECK_CANARY(i, ff_block);
+        i = (void *)i + ff_get_block_size(i);
+    }
+
+    if((size_t)i / getpagesize() != (size_t)block / getpagesize() || !ff_is_block_free(i)){
+        return NULL;
+    }
+
+    return i;
+}
+
+
+void ff_split_block_if_profitable(ff_block *block, size_t alloc_size){
+    CHECK_CANARY(block, ff_block);
 
     let old_size = ff_get_block_size(block);
     let new_left_block_size = alloc_size + sizeof(ff_block) - sizeof(struct free_block_data);
     let new_right_block_size = old_size - new_left_block_size;
 
-    // printf("aq %u %u %u\n", alloc_size, old_size, new_left_block_size);
-// printf("%u %u %u %u %u\n", old_size, new_left_block_size, new_right_block_size, alloc_size, sizeof(ff_block));
-    if(old_size < new_left_block_size || new_right_block_size < sizeof(ff_block)){
+    if(old_size < new_left_block_size 
+        || new_right_block_size < sizeof(ff_block) // it would make impossible to turn into free block in future
+        || new_left_block_size < sizeof(ff_block)){ // it would make impossible to turn into free block in future
+
         // not profitable, maybe not even possible
         return;
     }
@@ -245,11 +272,19 @@ void ff_split_free_block_if_profitable(ff_block *block, size_t alloc_size){
 
     ff_block_set_is_free(new_block, true);
 
-    ff_block *next_free = block->free_block_data.next_free;
 
-    ff_set_block_as_free_and_update_list(new_block, block, next_free);
+    ff_block *next_free;
+    ff_block *prev_free;
 
+    if(ff_is_block_free(block)){
+        next_free = block->free_block_data.next_free;
+        prev_free = block;
+    }else{
+        prev_free = ff_get_previous_free(new_block);
+        next_free = prev_free == NULL ? ff_get_next_free(new_block) : prev_free->free_block_data.next_free;
+    }
 
+    ff_set_block_as_free_and_update_list(new_block, prev_free, next_free);
 }
 
 void ff_mark_as_used(ff_block *block, size_t alloc_size){
@@ -257,7 +292,7 @@ void ff_mark_as_used(ff_block *block, size_t alloc_size){
 
     assert(ff_get_block_size(block) >= alloc_size);
     assert(ff_get_block_size(block) >= alloc_size + sizeof(ff_block) - sizeof(struct free_block_data));
-    ff_split_free_block_if_profitable(block, alloc_size);
+    ff_split_block_if_profitable(block, alloc_size);
 
     // printf("fs %u %u\n", ff_get_block_size(block) , alloc_size);
     assert(ff_get_block_size(block) >= alloc_size);
@@ -345,35 +380,6 @@ ff_block *ff_get_block_by_alloc_ptr(void *ptr){
     return block;
 }
 
-ff_block *ff_get_previous_free(ff_block *block){ 
-    ff_block *i = (void *)block - block->size_of_previous_block;
-
-    while(!ff_is_block_free(i)){
-        CHECK_CANARY(i, ff_block);
-        if(i->size_of_previous_block == 0){
-            return NULL;
-        }
-        i = (void *)i - i->size_of_previous_block;
-    }
-
-    return i;
-}
-
-ff_block *ff_get_next_free(ff_block *block){
-    ff_block *i = (void *)block + ff_get_block_size(block);
-
-    while((size_t)i / getpagesize() == (size_t)block / getpagesize() && !ff_is_block_free(i)){
-        CHECK_CANARY(i, ff_block);
-        i = (void *)i + ff_get_block_size(i);
-    }
-
-    if((size_t)i / getpagesize() != (size_t)block / getpagesize() || !ff_is_block_free(i)){
-        return NULL;
-    }
-
-    return i;
-}
-
 void ff_merge_block_with_next(ff_block *block){
     ff_block *next = (void *)block + ff_get_block_size(block);
     CHECK_CANARY(next, ff_block);
@@ -417,7 +423,33 @@ void ff_free(void *ptr){
 }
 
 bool ff_try_resize(void *ptr, size_t new_size){
-    return false;
+    // printf("%p\n", ptr);
+    ff_block *block = ff_get_block_by_alloc_ptr(ptr);
+
+    int shift = (size_t)ptr - (size_t)block->data;
+    // printf("shift: %u\n", shift);
+
+    if(new_size + shift + sizeof(ff_block) - sizeof(struct free_block_data) <= ff_get_block_size(block)){
+        ff_split_block_if_profitable(block, shift + new_size);
+        return true;
+    }
+    // return false;
+
+    // ff_block *next = (void *)block + ff_get_block_size(block);
+
+    // if((size_t)next / getpagesize() != (size_t)block / getpagesize() || !ff_is_block_free(next)){
+    //     return false;
+    // }
+
+    // if(ff_get_block_size(next) - sizeof(ff_block) + sizeof(struct free_block_data) < missing){
+    //     return false;
+    // }
+
+    // ff_mark_as_used(next, missing);
+
+    // ff_set_block_size(block, ff_get_block_size(block) + missing);
+
+    // return true;
 }
 
 size_t ff_data_size(chunk_header *ptr){

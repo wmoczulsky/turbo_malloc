@@ -1,4 +1,4 @@
-#define NDEBUG
+// #define NDEBUG
 
 
 #include "./common.h"
@@ -47,9 +47,9 @@ extern void my_free(void *ptr){
 }
 
 // resize tries to resize block, if moving is needed, then returns false
-bool my_try_resize(chunk_header *chunk, size_t size){
+bool my_try_resize(chunk_header *chunk, void *ptr, size_t size){
     assert(chunk != NULL);
-    return chunk $ try_resize(chunk, size);
+    return chunk $ try_resize(ptr, size);
 }
 
 void *my_move_to_bigger_block(void *old_data_ptr, chunk_header *chunk, size_t old_size, size_t size){
@@ -79,7 +79,7 @@ extern void *my_realloc(void *ptr, size_t size){
 
     chunk_header *chunk = chunk_find_by_data_ptr(ptr);
 
-    if(my_try_resize(chunk, size)){
+    if(my_try_resize(chunk, ptr, size)){
         return ptr; // resized!
     }
 
