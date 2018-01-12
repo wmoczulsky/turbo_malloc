@@ -446,73 +446,73 @@ void ff_try_merge_with_siblings(ff_block *block){
 
 void ff_free(void *ptr){
 
-    ____________________________ff_assert_free_list_is_ok(ptr);
-    ff_block *block = ff_get_block_by_alloc_ptr(ptr);
-    CHECK_CANARY(block, ff_block);
+    // ____________________________ff_assert_free_list_is_ok(ptr);
+    // ff_block *block = ff_get_block_by_alloc_ptr(ptr);
+    // CHECK_CANARY(block, ff_block);
 
-    ff_block *prev_free = ff_get_previous_free(block);
-    ff_block *next_free = prev_free == NULL ? ff_get_next_free(block) : prev_free->free_block_data.next_free;
+    // ff_block *prev_free = ff_get_previous_free(block);
+    // ff_block *next_free = prev_free == NULL ? ff_get_next_free(block) : prev_free->free_block_data.next_free;
 
-    ____________________________ff_assert_free_list_is_ok(ptr);
-    // printf("asdf %p %p %p\n", prev_free, block, next_free);
+    // ____________________________ff_assert_free_list_is_ok(ptr);
+    // // printf("asdf %p %p %p\n", prev_free, block, next_free);
 
-    ff_set_block_as_free_and_update_list(block, prev_free, next_free);
+    // ff_set_block_as_free_and_update_list(block, prev_free, next_free);
     
-    ____________________________ff_assert_free_list_is_ok(ptr);
-    ff_try_merge_with_siblings(block);  
+    // ____________________________ff_assert_free_list_is_ok(ptr);
+    // ff_try_merge_with_siblings(block);  
     ____________________________ff_assert_free_list_is_ok(ptr); 
 }
 
 bool ff_try_resize(void *ptr, size_t new_size){
 
     ____________________________ff_assert_free_list_is_ok(ptr);
-    ff_block *block = ff_get_block_by_alloc_ptr(ptr);
-    assert(!ff_is_block_free(block));
+//     ff_block *block = ff_get_block_by_alloc_ptr(ptr);
+//     assert(!ff_is_block_free(block));
 
-    int shift = (size_t)ptr - (size_t)block->data;
-//    printf("shift: %u\n", shift);
+//     int shift = (size_t)ptr - (size_t)block->data;
+// //    printf("shift: %u\n", shift);
 
-    let estimated_new_block_size = new_size + shift + sizeof(ff_block) - sizeof(free_block_data);
-    if(estimated_new_block_size <= ff_get_block_size(block)){
-        ff_split_block_if_profitable(block, shift + new_size);
-        return true;
-    }
+//     let estimated_new_block_size = new_size + shift + sizeof(ff_block) - sizeof(free_block_data);
+//     if(estimated_new_block_size <= ff_get_block_size(block)){
+//         ff_split_block_if_profitable(block, shift + new_size);
+//         return true;
+//     }
 
-    ____________________________ff_assert_free_list_is_ok(ptr);
-    let missing_space = estimated_new_block_size - ff_get_block_size(block);
+//     ____________________________ff_assert_free_list_is_ok(ptr);
+//     let missing_space = estimated_new_block_size - ff_get_block_size(block);
 
-    ff_block *next = (void *)block + ff_get_block_size(block);
+//     ff_block *next = (void *)block + ff_get_block_size(block);
 
-    if((size_t)next / getpagesize() != (size_t)block / getpagesize() 
-        || !ff_is_block_free(next)
-        || ff_get_block_size(next) < missing_space){
-        return false;
-    }
-    ____________________________ff_assert_free_list_is_ok(ptr);
-// ____________________________ff_assert_free_list_is_ok(ptr);
-    // // TODO nie działa ;/
-    // return false;
-    int next_block_alloc_size = missing_space - sizeof(ff_block) + sizeof(free_block_data);
-    if(next_block_alloc_size < 0)
-        next_block_alloc_size = 0;
+//     if((size_t)next / getpagesize() != (size_t)block / getpagesize() 
+//         || !ff_is_block_free(next)
+//         || ff_get_block_size(next) < missing_space){
+//         return false;
+//     }
+//     ____________________________ff_assert_free_list_is_ok(ptr);
+// // ____________________________ff_assert_free_list_is_ok(ptr);
+//     // // TODO nie działa ;/
+    return false;
+//     int next_block_alloc_size = missing_space - sizeof(ff_block) + sizeof(free_block_data);
+//     if(next_block_alloc_size < 0)
+//         next_block_alloc_size = 0;
     
-    ff_mark_as_used(next, next_block_alloc_size);
+//     ff_mark_as_used(next, next_block_alloc_size);
 
-    let real_new_block_size = ff_get_block_size(block) + ff_get_block_size(next);
+//     let real_new_block_size = ff_get_block_size(block) + ff_get_block_size(next);
 
-    // maybe next was splitted into two blocks, and first one was set as free
-    // in order to destroy first block, we must update pointers
-    ff_block *next_next = (void *)next + ff_get_block_size(next);
-    if((size_t)next_next / getpagesize() == (size_t)block / getpagesize()){
-        CHECK_CANARY(next_next, ff_block);
-        next_next->size_of_previous_block = real_new_block_size;
-    }
+//     // maybe next was splitted into two blocks, and first one was set as free
+//     // in order to destroy first block, we must update pointers
+//     ff_block *next_next = (void *)next + ff_get_block_size(next);
+//     if((size_t)next_next / getpagesize() == (size_t)block / getpagesize()){
+//         CHECK_CANARY(next_next, ff_block);
+//         next_next->size_of_previous_block = real_new_block_size;
+//     }
 
-    // Cannot use ff_set_block_size() because current size is broken
-    block->size_and_free = (real_new_block_size) << 1;
-____________________________ff_assert_free_list_is_ok(ptr);
+//     // Cannot use ff_set_block_size() because current size is broken
+//     block->size_and_free = (real_new_block_size) << 1;
+// ____________________________ff_assert_free_list_is_ok(ptr);
 
-    return true;
+//     return true;
 }
 
 size_t ff_data_size(chunk_header *ptr){
