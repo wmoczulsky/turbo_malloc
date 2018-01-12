@@ -81,7 +81,12 @@ int call_posix_memalign(void **memptr, size_t alignment, size_t size){
 }
 
 void *call_realloc(void *ptr, size_t size){
+        //printf("R %p %u\n", ptr, size);
+        //printf(" ");
+        //printf(" \n", ptr, size);
+
     void * res = my_realloc(ptr, size);
+        printf("Rr %p\n", res);
     if(res != NULL){
         validate_malloc(res, size);
     }
@@ -89,6 +94,7 @@ void *call_realloc(void *ptr, size_t size){
 }
 
 void call_free(void *ptr){
+    //printf("F %p\n", ptr);
     assert(ptr != NULL, "trying to free(NULL)");
     my_free(ptr);
 }
@@ -195,7 +201,7 @@ void allocate_here(alloc *a, size_t new_size){
         }
 
         size_t size;
-        for(int divisor = 32; divisor >= 1; divisor --){
+        for(int divisor = 32; ;divisor --){
             if(new_size % divisor == 0){
                 size = divisor;
                 break;
@@ -265,7 +271,7 @@ int main(){
     // srand(EAGAIN); // deterministic
     // srand(malloc(time())); // semi-deterministic
     // srand(fork()); // wtf?
-    srand(getpagesize()+2231);
+    srand(getpagesize()+2321);
 
     #if NUM_THREADS != 1 && !(defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__))
         pthread_t tid[NUM_THREADS];

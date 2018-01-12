@@ -1,4 +1,4 @@
-CC = gcc
+CC = clang
 CFLAGS_ = -std=gnu11 -Wall -Wextra
 
 all: main
@@ -15,4 +15,4 @@ clean:
 
 
 test: tests/functional.c memory.o
-	gcc -std=gnu11 -g -Wall -Wextra tests/functional.c memory.o -o 'test' -lpthread  -lrt 
+	clang -std=gnu11 -g -Wall -Wextra tests/functional.c memory.o -o 'test' -lpthread  -lrt 
