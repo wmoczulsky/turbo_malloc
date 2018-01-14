@@ -134,7 +134,7 @@ size_t rand_alloc_size(){
  
     r = (2211222ull*r*r - 1304302ull*r + 47585ull) ;
     r = abs((int)r);
-    if(r > 4096){return rand_alloc_size();}
+    
     return r+1;
     // return 1 + r / 1; // for testing bitmap
 }
@@ -171,7 +171,6 @@ void fill_with_data(alloc* a){
 
 void allocate_here(alloc *a, size_t new_size){
     int r = rand() % 4;
-
 
     if(r == 0){
         // use malloc
@@ -270,7 +269,7 @@ int main(){
     // srand(EAGAIN); // deterministic
     // srand(malloc(time())); // semi-deterministic
     // srand(fork()); // wtf?
-    srand(getpagesize()+2421);
+    srand(getpagesize()+1);
 
     #if NUM_THREADS != 1 && !(defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__))
         pthread_t tid[NUM_THREADS];

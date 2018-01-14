@@ -1,6 +1,28 @@
 #pragma once
 
 #include <sys/mman.h>
+#include <pthread.h>
+
+
+typedef pthread_mutex_t mutex_t;
+
+
+void mutex_init(mutex_t *mutex){
+    pthread_mutex_init(mutex, NULL);
+}
+
+int mutex_lock(mutex_t *mutex){
+    return pthread_mutex_lock(mutex);
+}
+
+int mutex_trylock(mutex_t *mutex){
+    return pthread_mutex_trylock(mutex);
+}
+
+int mutex_unlock(pthread_mutex_t *mutex){
+    return pthread_mutex_unlock(mutex);
+}
+
 
 
 void *allocate_memory(size_t bytes){

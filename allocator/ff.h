@@ -9,7 +9,7 @@
 allocator ff_allocator;
 
 typedef struct free_block_data {
-    struct ff_block *prev_free; // todo shorter numbers instead of ptrs
+    struct ff_block *prev_free; 
     struct ff_block *next_free;
 } free_block_data;
 
@@ -19,6 +19,8 @@ typedef struct ff_block {
     // least significant bit tells if block is free
     // rest of bits (15-bit unsigned int) tells size including this header 
     uint16_t size_and_free; 
+
+
     uint16_t size_of_previous_block; 
 
     CANARY_END; 
@@ -26,7 +28,7 @@ typedef struct ff_block {
     uint8_t aux; // read comment to ff_get_block_by_alloc_ptr()
     
     union {
-        uint8_t data[0]; // data ptr
+        uint8_t data[0]; 
         free_block_data free_block_data;
     };
 } ff_block;
@@ -46,6 +48,7 @@ typedef struct ff_region {
 
 
 ff_region *ff_first_region = NULL;
+int ff_num_free_regions = 0;
 
 
 size_t ff_get_block_size(ff_block *block){
@@ -82,56 +85,6 @@ ff_region *ff_get_region_by_ptr(void *ptr){
 }
 
 
-void ____________________________ff_assert_free_list_is_ok(void *ptr){
-//     // slow, but sometimes necessary ;/
-//     ff_region *region = ff_get_region_by_ptr(ptr);
-//     ff_block *i = region->first_free;
-//     assert(((ff_block *)((void *)region + sizeof(ff_region)))->size_of_previous_block == 0);
-//     int a = 0;
-//     ff_block *j = NULL;
-//     while(i != NULL){
-//         j = i;
-//         // printf("iteration %d\n", a++);
-//         // printf("forward: %p\n", i);
-//         assert(i->free_block_data.prev_free < i);
-//         // printf("%p %p \n", i, i->free_block_data.prev_free );
-//         assert(i->free_block_data.prev_free == NULL || (size_t)i->free_block_data.prev_free/getpagesize()== (size_t)i/getpagesize());
-//         assert(ff_is_block_free(i));
-//         i = i->free_block_data.next_free;
-//     }
-
-
-//     // navigate left to check if links are ok
-//     i = j;
-// /////////////////////////////////////////////    // assert(((size_t)i + ff_get_block_size(i) + 1) % getpagesize() == 0);
-//     while(i != NULL){
-//         // printf("backwards: %p\n", i);
-//         j = i;
-//         i = i->free_block_data.prev_free;
-//     }
-//    // printf("-------> j %p ff %p\n", j, region->first_free);
-//     assert(j == NULL || j == region->first_free);
-
-
-//     // check all blocks
-//     j = NULL;
-//     i = (void *)region + sizeof(ff_region);
-//     while((size_t)i % getpagesize() != 0){
-//           CHECK_CANARY(i, ff_block);
-//         j = i;
-//         i = (void *)i + ff_get_block_size(i);
-//     } 
-
-//     i = j;
-//     while(i->size_of_previous_block != 0){
-//         i = (void *)i - i->size_of_previous_block;
-//         CHECK_CANARY(i, ff_block);
-//     }
-
-//     assert(i == (void *)region + sizeof(ff_region));
-}
-
-
 ff_region *ff_new_region(){
     ff_region *new_region = allocate_chunk(getpagesize() - sizeof(chunk_header), &ff_allocator);
 
@@ -147,6 +100,8 @@ ff_region *ff_new_region(){
     INIT_CANARY(block, ff_block);
     ff_set_block_size(block, getpagesize() - sizeof(chunk_header) - sizeof(ff_region));
     ff_block_set_is_free(block, true);
+
+    ff_num_free_regions ++;
 
     return new_region;
 }
@@ -309,15 +264,40 @@ void ff_split_block_if_profitable(ff_block *block, size_t alloc_size){
     ff_set_block_as_free_and_update_list(new_block, prev_free, next_free);
 }
 
+void ff_mark_region_emptiness_before_alloc(ff_region *region){
+    // should be called just before splitting blocks, setting params etc
+
+    if(region->first_free != NULL
+        && region->first_free->size_of_previous_block == 0 
+        && ((size_t)region->first_free + ff_get_block_size(region->first_free)) % getpagesize() == 0){
+        ff_num_free_regions --;
+    }
+}
+
+void ff_mark_region_emptiness_on_free(ff_region *region){
+    if(region->first_free != NULL
+        && region->first_free->size_of_previous_block == 0 
+        && ((size_t)region->first_free + ff_get_block_size(region->first_free)) % getpagesize() == 0){
+        ff_num_free_regions ++;
+    }
+}
+
+
 void ff_mark_as_used(ff_block *block, size_t alloc_size){
     CHECK_CANARY(block, ff_block);
 
     assert(ff_get_block_size(block) >= alloc_size);
     assert(ff_get_block_size(block) >= alloc_size + sizeof(ff_block) - sizeof(free_block_data));
+
+    ff_mark_region_emptiness_before_alloc(ff_get_region_by_ptr(block));
+
     ff_split_block_if_profitable(block, alloc_size);
 
     assert(ff_get_block_size(block) >= alloc_size);
     assert(ff_is_block_free(block));
+
+
+
     
     ff_block_set_is_free(block, false);
 
@@ -337,8 +317,6 @@ void ff_mark_as_used(ff_block *block, size_t alloc_size){
 
     if(next_free != NULL)
         next_free->free_block_data.prev_free = prev_free;
-
-
 
 }
 
@@ -440,6 +418,36 @@ void ff_try_merge_with_siblings(ff_block *block){
     }
 }
 
+
+
+void ff_free_region(ff_region *region){
+    ff_region *p = NULL;
+    ff_region *i = ff_first_region;
+    while(i != region){
+        p = i;
+        i = i->next;
+        assert(i != NULL);
+    }
+
+    if(p == NULL){
+        ff_first_region = ff_first_region->next;
+    }else{
+        CHECK_CANARY(p, ff_region);
+        p->next = p->next->next; // delete from list
+    }
+
+    free_chunk((void *)region - (size_t)region % getpagesize());    
+    ff_num_free_regions --;
+}
+
+void ff_return_region_to_system_if_profitable(ff_region *region){
+    ff_mark_region_emptiness_on_free(region);
+    if(ff_num_free_regions > 10){
+        ff_free_region(region);
+    }
+}
+
+
 void ff_free(void *ptr){
 
     ff_block *block = ff_get_block_by_alloc_ptr(ptr);
@@ -451,6 +459,8 @@ void ff_free(void *ptr){
     ff_set_block_as_free_and_update_list(block, prev_free, next_free);
     
     ff_try_merge_with_siblings(block);  
+
+    ff_return_region_to_system_if_profitable(ff_get_region_by_ptr(ptr));
 }
 
 bool ff_try_resize(void *ptr, size_t new_size){
@@ -475,7 +485,6 @@ bool ff_try_resize(void *ptr, size_t new_size){
         || ff_get_block_size(next) < missing_space){
         return false;
     }
-// ____________________________ff_assert_free_list_is_ok(ptr);
 
     int next_block_alloc_size = missing_space - sizeof(ff_block) + sizeof(free_block_data);
     if(next_block_alloc_size < 0)
@@ -495,7 +504,6 @@ bool ff_try_resize(void *ptr, size_t new_size){
 
     // Cannot use ff_set_block_size() because current size is broken
     block->size_and_free = (real_new_block_size) << 1;
-____________________________ff_assert_free_list_is_ok(ptr);
 
     return true;
 }
