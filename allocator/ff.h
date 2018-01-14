@@ -522,9 +522,9 @@ void ff_mdump(void *ptr){
     while((size_t)i % getpagesize() != 0){
         CHECK_CANARY(i, ff_block);
         if(ff_is_block_free(i)){
-            printf("---- Free block with size: %u\n", ff_get_block_size(i));
+            printf("---- Free block with size: %zu\n", ff_get_block_size(i));
         }else{
-            printf("---- Not-free block with size: %u\n", ff_get_block_size(i));
+            printf("---- Not-free block with size: %zu\n", ff_get_block_size(i));
         }
         i = (void *)i + ff_get_block_size(i);
     }

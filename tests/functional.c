@@ -117,7 +117,7 @@ typedef struct {
 
 #define NUM_THREADS 1
 #define _1GB 1073741824ull 
-#define _100GB (0.1 * _1GB)
+#define _100GB (10 * _1GB)
 #define ALLOC_MAX _1GB
 #define ALLOC_MIN 1
 #define ALLOC_AVG 250000 / NUM_THREADS
