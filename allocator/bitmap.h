@@ -236,14 +236,18 @@ void bitmap_free(void *ptr){
     // and maybe dealloc
     if(region->allocs_count == 2){
         // two allocations means chunk and region headers
-        bitmap_region *prev = bitmap_first_region;
-        while(prev->next != region){
-            assert(prev->next != NULL);
-            prev = prev->next;
-        }
+        if(region == bitmap_first_region){
+            bitmap_first_region = bitmap_first_region->next;
+        }else{
+            bitmap_region *prev = bitmap_first_region;
+            while(prev->next != region){
+                assert(prev->next != NULL);
+                prev = prev->next;
+            }
 
-        assert(prev->next->next == region->next);
-        prev->next = prev->next->next;
+            assert(prev->next->next == region->next);
+            prev->next = prev->next->next;
+        }
         free_chunk(chunk);
     }
 }
