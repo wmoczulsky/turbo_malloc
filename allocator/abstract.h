@@ -11,4 +11,5 @@ struct _allocator{
 
     // return size of allocation under ptr, 0 if not implemented
     size_t (*data_size)(void *ptr); 
+    void (*mdump)(void *ptr);
 };

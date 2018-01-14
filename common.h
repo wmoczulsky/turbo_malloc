@@ -9,8 +9,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define $ ->_->
 
-typedef struct _allocator allocator;
+
 
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__) 
@@ -34,4 +35,8 @@ typedef struct _allocator allocator;
     #define INIT_CANARY(THIS, NAME) ;
     #define CHECK_CANARY(THIS, NAME) ;
 #endif 
+
+
+
+typedef struct _allocator allocator;
 

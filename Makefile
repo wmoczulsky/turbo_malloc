@@ -1,4 +1,4 @@
-CC = clang
+CC = gcc
 CFLAGS = -std=gnu11 -Wall -Wextra -g 
 
 all: test libmalloc

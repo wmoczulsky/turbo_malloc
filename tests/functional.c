@@ -4,17 +4,20 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <pthread.h>
+#include <math.h>
 #include <unistd.h>
 // #include
 
 /*
 The plan:
-- Allocate 10 GB of memory in total
+- Allocate some number of GB of memory in total
 - 1 GB allocated at average
 - randomly choose posix_memalign, calloc, malloc, and check assumptions of used function
 - write some random, deterministic data to each allocated block
 - before destruction, check data
 - sometimes use realloc 
+
+if this test does not fail, everything is ok. It is really slow.
 
 */
 
@@ -114,7 +117,7 @@ typedef struct {
 
 #define NUM_THREADS 1
 #define _1GB 1073741824ull 
-#define _100GB (3 * _1GB)
+#define _100GB (0.1 * _1GB)
 #define ALLOC_MAX _1GB
 #define ALLOC_MIN 1
 #define ALLOC_AVG 250000 / NUM_THREADS
@@ -129,14 +132,13 @@ uint64_t good_rand(){
               (((uint64_t) rand() << 32) & 0x0000FFFF00000000ull) |
               (((uint64_t) rand() << 48) & 0xFFFF000000000000ull);
 }
+
 size_t rand_alloc_size(){
     float r = ((size_t)good_rand()) / (float)SIZE_MAX;//(good_rand() - ALLOC_MIN) % (ALLOC_MAX - ALLOC_MIN) + ALLOC_MIN;
  
     r = (2211222ull*r*r - 1304302ull*r + 47585ull) ;
-    r = abs((int)r);
-    
-    return r+1;
-    // return 1 + r / 1; // for testing bitmap
+    r = fabsf(r);
+    return (int)r/100+1;
 }
 
 
@@ -229,6 +231,7 @@ void allocate_here(alloc *a, size_t new_size){
             // printf("realloc returned NULL\n");
         }
     }
+    // my_mdump();
 }
 
 void allocate_something(){
@@ -266,10 +269,8 @@ void *test(void * a){
 
 
 int main(){
-    // srand(EAGAIN); // deterministic
-    // srand(malloc(time())); // semi-deterministic
-    // srand(fork()); // wtf?
-    srand(getpagesize()+1);
+
+    srand(getpagesize());
 
     #if NUM_THREADS != 1 && !(defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__))
         pthread_t tid[NUM_THREADS];

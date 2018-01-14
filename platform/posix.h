@@ -19,7 +19,7 @@ int mutex_trylock(mutex_t *mutex){
     return pthread_mutex_trylock(mutex);
 }
 
-int mutex_unlock(pthread_mutex_t *mutex){
+int mutex_unlock(mutex_t *mutex){
     return pthread_mutex_unlock(mutex);
 }
 

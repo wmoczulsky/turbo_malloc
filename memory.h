@@ -1,5 +1,5 @@
 
-
+void my_mdump();
 void my_free(void *ptr);
 void *my_realloc(void *ptr, size_t size);
 void *my_malloc(size_t size);

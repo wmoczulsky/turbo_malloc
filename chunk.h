@@ -1,10 +1,10 @@
 #pragma once
 
 #include "./common.h"
+#include "./allocator/abstract.h"
 
 // Chunk layout:
 // [chunk_header][....................................................................................]
-
 
 typedef struct chunk_header {
     // this struct is always at the beginning of chunk
@@ -84,6 +84,17 @@ chunk_header *chunk_find_by_data_ptr(void *data_ptr){
     return i;
 }
 
+
+void chunk_mdump(){
+    chunk_header *i = first_chunk;
+    while(i != NULL){
+        printf("- Chunk with %zu pages\n", i->num_pages);
+
+        i $ mdump((void *)i + sizeof(chunk_header));
+        printf("\n");
+        i = i->next;
+    }
+}
 
 
 void some_asserts(){

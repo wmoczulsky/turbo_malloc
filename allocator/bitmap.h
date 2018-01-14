@@ -263,18 +263,24 @@ size_t bitmap_data_size(void *ptr){
     return 0;
 }
 
+void bitmap_mdump(void *ptr){
+    (void)ptr;
+    printf("-- Bitmap allocator\n");
+}
+
 allocator bitmap_allocator = {
     .alloc = bitmap_alloc,
     .free = bitmap_free,
     .try_resize = bitmap_try_resize,
-    .data_size = bitmap_data_size
+    .data_size = bitmap_data_size,
+    .mdump = bitmap_mdump
 };
 
 
-// todo macro for constructor asserts
 __attribute__((constructor)) void bitmap_init(){
 
 
+    // todo move to unit test
     assert(!bitmap_get_bit(0, 4611686018427387904llu));   
     assert(bitmap_get_bit(1, 4611686018427387904llu));   
     assert(!bitmap_get_bit(2, 4611686018427387904llu));   

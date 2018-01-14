@@ -513,11 +513,29 @@ size_t ff_data_size(void *ptr){
     return ff_get_block_size(block) - ((size_t)ptr - (size_t)block);
 }
 
+void ff_mdump(void *ptr){
+    ff_region *region = ptr;
+    CHECK_CANARY(region, ff_region);
+    printf("-- First First Allocation \n");
+    printf("-- blocks inside: \n");
+    ff_block *i = (void *)region + sizeof(ff_region);
+    while((size_t)i % getpagesize() != 0){
+        CHECK_CANARY(i, ff_block);
+        if(ff_is_block_free(i)){
+            printf("---- Free block with size: %u\n", ff_get_block_size(i));
+        }else{
+            printf("---- Not-free block with size: %u\n", ff_get_block_size(i));
+        }
+        i = (void *)i + ff_get_block_size(i);
+    }
+}
+
 allocator ff_allocator = {
     .alloc = ff_alloc,
     .free = ff_free,
     .try_resize = ff_try_resize,
-    .data_size = ff_data_size
+    .data_size = ff_data_size,
+    .mdump = ff_mdump
 };
 
     

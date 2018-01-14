@@ -58,9 +58,14 @@ size_t big_block_data_size(void *ptr){
     return hdr->data_size;
 }
 
+void big_block_mdump(void *ptr){
+    printf("-- Big block (%zu bytes allocated)\n", ((big_block_header *)ptr)->data_size);
+}
+
 allocator big_block_allocator = {
     .alloc = big_block_alloc,
     .free = big_block_free,
     .try_resize = big_block_try_resize,
-    .data_size = big_block_data_size
+    .data_size = big_block_data_size,
+    .mdump = big_block_mdump
 };

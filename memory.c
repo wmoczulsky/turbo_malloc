@@ -4,8 +4,6 @@
 #include "./allocator/bitmap.h"
 #include "./allocator/ff.h"
 
-#define $ ->_->
-
 
 mutex_t mutex;
 
@@ -139,4 +137,12 @@ int my_posix_memalign(void **memptr, size_t alignment, size_t size){
     *memptr = my_alloc(size, alignment);
     mutex_unlock(&mutex);
     return 0;
+}
+
+void my_mdump(){
+    mutex_lock(&mutex);
+    printf("\n\n----| DUMPING ALL ALLOCATOR DATA |----\n");
+    chunk_mdump();
+    printf("----|        DONE DUMPING        |----\n\n\n\n\n\n\n\n\n\n");
+    mutex_unlock(&mutex);
 }
