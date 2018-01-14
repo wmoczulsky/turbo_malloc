@@ -52,6 +52,7 @@ bool my_try_resize(chunk_header *chunk, void *ptr, size_t size){
 }
 
 void *my_move_to_bigger_block(void *old_data_ptr, chunk_header *chunk, size_t old_size, size_t size){
+    (void)chunk;
     void *new_ptr = my_alloc(size, sizeof(void *));
     if(new_ptr){
         assert(old_size < size);

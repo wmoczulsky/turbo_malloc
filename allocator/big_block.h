@@ -19,9 +19,7 @@ void *big_block_alloc(size_t size, size_t align){
     // layout inside chunk:
     // [big_block_header][?align?][     d       a       t       a     ]
 
-    // todo better padding calc
-
-    size_t sum_size = sizeof(big_block_header) + align + size; //TODO to jest potęga 2!!!!
+    size_t sum_size = sizeof(big_block_header) + align + size; 
 
     big_block_header *header = allocate_chunk(sum_size, &big_block_allocator);
 
@@ -47,6 +45,8 @@ void big_block_free(void *ptr){
 }
 
 bool big_block_try_resize(void *ptr, size_t new_size){
+    (void)ptr;
+    (void)new_size;
     return false; // not implemented for this kind of allocation
 }
 

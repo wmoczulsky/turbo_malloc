@@ -131,9 +131,9 @@ uint64_t good_rand(){
 }
 size_t rand_alloc_size(){
     float r = ((size_t)good_rand()) / (float)SIZE_MAX;//(good_rand() - ALLOC_MIN) % (ALLOC_MAX - ALLOC_MIN) + ALLOC_MIN;
-
+ 
     r = (2211222ull*r*r - 1304302ull*r + 47585ull) ;
-    r = abs(r);
+    r = abs((int)r);
     if(r > 4096){return rand_alloc_size();}
     return r+1;
     // return 1 + r / 1; // for testing bitmap

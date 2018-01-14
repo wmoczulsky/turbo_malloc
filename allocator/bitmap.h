@@ -131,7 +131,7 @@ bitmap_region *bitmap_make_new_region(){
 
 
     // request new region, adding it to the list 
-    bitmap_region *new_region = allocate_chunk(16 * page_size - chunk_header_size, &bitmap_allocator);
+    bitmap_region *new_region = allocate_chunk(16 * getpagesize() - chunk_header_size, &bitmap_allocator);
     if(new_region == NULL){
         return NULL;
     }
@@ -249,10 +249,13 @@ void bitmap_free(void *ptr){
 }
 
 bool bitmap_try_resize(void *ptr, size_t new_size){
+    (void)ptr;
+    (void)new_size;
     return false;
 }
 
 size_t bitmap_data_size(void *ptr){
+    (void)ptr;
     return 0;
 }
 

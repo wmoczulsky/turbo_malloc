@@ -195,7 +195,6 @@ ff_block *ff_find_free_block_to_alloc(size_t size, size_t align){
     while(region != NULL){
         ff_block *block = ff_find_free_block_in_region(region, size, align);
         if(block != NULL){
-            // printf("%p\n", block);
             CHECK_CANARY(block, ff_block);
             return block;
         }
@@ -211,8 +210,8 @@ ff_block *ff_find_free_block_to_alloc(size_t size, size_t align){
 
 
 void ff_set_block_as_free_and_update_list(ff_block *block, ff_block *prev_free, ff_block *next_free){
-    assert(prev_free < 1llu<<48); // it is ptr, not random value
-    assert(next_free < 1llu<<48); // it is ptr, not random value
+    // assert((size_t)prev_free < 1llu<<48); // it is ptr, not random value
+    // assert((size_t)next_free < 1llu<<48); // it is ptr, not random value
 
     assert(prev_free < block || prev_free == NULL);
     assert(next_free > block || next_free == NULL);
@@ -270,7 +269,6 @@ ff_block *ff_get_next_free(ff_block *block){
 void ff_split_block_if_profitable(ff_block *block, size_t alloc_size){
     CHECK_CANARY(block, ff_block);
 
-    ____________________________ff_assert_free_list_is_ok(block);
     let old_size = ff_get_block_size(block);
     let new_left_block_size = alloc_size + sizeof(ff_block) - sizeof(free_block_data);
     let new_right_block_size = old_size - new_left_block_size;
@@ -283,7 +281,6 @@ void ff_split_block_if_profitable(ff_block *block, size_t alloc_size){
         return;
     }
 
-    ____________________________ff_assert_free_list_is_ok(block);
     ff_block *new_block = (void *)block + new_left_block_size;
 
     assert((size_t)block / getpagesize() == ((size_t)block + old_size - sizeof(ff_block)) / getpagesize());
@@ -309,20 +306,16 @@ void ff_split_block_if_profitable(ff_block *block, size_t alloc_size){
         next_free = prev_free == NULL ? ff_get_next_free(new_block) : prev_free->free_block_data.next_free;
     }
 
-    ____________________________ff_assert_free_list_is_ok(block);
     ff_set_block_as_free_and_update_list(new_block, prev_free, next_free);
-    ____________________________ff_assert_free_list_is_ok(block);
 }
 
 void ff_mark_as_used(ff_block *block, size_t alloc_size){
     CHECK_CANARY(block, ff_block);
 
-    ____________________________ff_assert_free_list_is_ok(block);
     assert(ff_get_block_size(block) >= alloc_size);
     assert(ff_get_block_size(block) >= alloc_size + sizeof(ff_block) - sizeof(free_block_data));
     ff_split_block_if_profitable(block, alloc_size);
 
-    // printf("fs %u %u\n", ff_get_block_size(block) , alloc_size);
     assert(ff_get_block_size(block) >= alloc_size);
     assert(ff_is_block_free(block));
     
@@ -332,11 +325,6 @@ void ff_mark_as_used(ff_block *block, size_t alloc_size){
     ff_block *prev_free = block->free_block_data.prev_free;
     ff_block *next_free = block->free_block_data.next_free;
 
-    // printf("b: %p pr: %p nx: %p ff:%p ffp:%p ff:n%p \n", block, prev_free, next_free, 
-    //     ff_get_region_by_ptr(block)->first_free, 
-    //     ff_get_region_by_ptr(block)->first_free->free_block_data.prev_free,
-    //     ff_get_region_by_ptr(block)->first_free->free_block_data.next_free
-    //     );
     assert(prev_free < block || prev_free == NULL);
     assert(next_free > block || next_free == NULL);
 
@@ -350,7 +338,6 @@ void ff_mark_as_used(ff_block *block, size_t alloc_size){
     if(next_free != NULL)
         next_free->free_block_data.prev_free = prev_free;
 
-    ____________________________ff_assert_free_list_is_ok(block);
 
 
 }
@@ -369,10 +356,7 @@ void *ff_alloc(size_t size, size_t align){
         return NULL;
     }
 
-    ____________________________ff_assert_free_list_is_ok(block);
     let shift = ff_calc_shift(block->data, align);
-    // printf("\n");
-    // printf("a %u %d\n",ff_get_block_size(block),  size + shift);
     
     ff_mark_as_used(block, size + shift);
 
@@ -380,11 +364,11 @@ void *ff_alloc(size_t size, size_t align){
     
     { // please read long comment several lines below
         #ifdef NDEBUG
-           for(uint8_t *i = &block->size_and_free + sizeof(block->size_and_free); i < (uint8_t *)block->data; i++){
+           for(uint8_t *i = (void *)&block->size_and_free + sizeof(block->size_and_free); i < (uint8_t *)block->data; i++){
                 *i = 0;
             }
         #else
-            for(uint8_t *i = &block->canary_end + sizeof(block->canary_end); i < (uint8_t *)block->data; i++){
+            for(uint8_t *i = (void *)&block->canary_end + sizeof(block->canary_end); i < (uint8_t *)block->data; i++){
                 *i = 0;
             }
         #endif
@@ -396,8 +380,6 @@ void *ff_alloc(size_t size, size_t align){
 
 
 
-    printf("ALLOC %u %u %u %p\n", size, align, shift, (void *)block->data + shift);
-    ____________________________ff_assert_free_list_is_ok(block);
     CHECK_CANARY(block, ff_block);
     return (void *)block->data + shift;
 }
@@ -424,15 +406,12 @@ ff_block *ff_get_block_by_alloc_ptr(void *ptr){
     }
     
     ff_block *block = (void *)shift_pointer - sizeof(ff_block) + sizeof(free_block_data);
-    printf("%u\n", (size_t)ptr - (size_t)shift_pointer);
     CHECK_CANARY(block, ff_block);
-    printf("%u\n", (size_t)ptr - (size_t)shift_pointer);
 
     return block;
 }
 
 void ff_merge_block_with_next(ff_block *block){
-    ____________________________ff_assert_free_list_is_ok(block);
     ff_block *next = (void *)block + ff_get_block_size(block);
     CHECK_CANARY(next, ff_block);
 
@@ -442,12 +421,10 @@ void ff_merge_block_with_next(ff_block *block){
     ff_mark_as_used(next, next_block_size - sizeof(ff_block) + sizeof(free_block_data));
 
     ff_set_block_size(block, ff_get_block_size(block) + next_block_size);
-    ____________________________ff_assert_free_list_is_ok(block);
 }
 
 void ff_try_merge_with_siblings(ff_block *block){
     assert(ff_is_block_free(block));
-    ____________________________ff_assert_free_list_is_ok(block);
 
     ff_block *prev = (void *)block - block->size_of_previous_block;
     ff_block *next = (void *)block + ff_get_block_size(block);
@@ -456,42 +433,32 @@ void ff_try_merge_with_siblings(ff_block *block){
         CHECK_CANARY(next, ff_block);
         ff_merge_block_with_next(block);
     }
-    ____________________________ff_assert_free_list_is_ok(block);
 
     if((size_t)prev / getpagesize() == (size_t)block / getpagesize() && block->size_of_previous_block != 0 && ff_is_block_free(prev)){
         CHECK_CANARY(prev, ff_block);
         ff_merge_block_with_next(prev);
     }
-    ____________________________ff_assert_free_list_is_ok(block);
 }
 
 void ff_free(void *ptr){
 
-    // ____________________________ff_assert_free_list_is_ok(ptr);
     ff_block *block = ff_get_block_by_alloc_ptr(ptr);
-    // CHECK_CANARY(block, ff_block);
+    CHECK_CANARY(block, ff_block);
 
-    // ff_block *prev_free = ff_get_previous_free(block);
-    // ff_block *next_free = prev_free == NULL ? ff_get_next_free(block) : prev_free->free_block_data.next_free;
+    ff_block *prev_free = ff_get_previous_free(block);
+    ff_block *next_free = prev_free == NULL ? ff_get_next_free(block) : prev_free->free_block_data.next_free;
 
-    ____________________________ff_assert_free_list_is_ok(ptr);
-    // printf("asdf %p %p %p\n", prev_free, block, next_free);
-
-    // ff_set_block_as_free_and_update_list(block, prev_free, next_free);
+    ff_set_block_as_free_and_update_list(block, prev_free, next_free);
     
-    ____________________________ff_assert_free_list_is_ok(ptr);
-    // ff_try_merge_with_siblings(block);  
-    ____________________________ff_assert_free_list_is_ok(ptr); 
+    ff_try_merge_with_siblings(block);  
 }
 
 bool ff_try_resize(void *ptr, size_t new_size){
 
-    ____________________________ff_assert_free_list_is_ok(ptr);
     ff_block *block = ff_get_block_by_alloc_ptr(ptr);
     assert(!ff_is_block_free(block));
 
     int shift = (size_t)ptr - (size_t)block->data;
-//    printf("shift: %u\n", shift);
 
     let estimated_new_block_size = new_size + shift + sizeof(ff_block) - sizeof(free_block_data);
     if(estimated_new_block_size <= ff_get_block_size(block)){
@@ -499,7 +466,6 @@ bool ff_try_resize(void *ptr, size_t new_size){
         return true;
     }
 
-    ____________________________ff_assert_free_list_is_ok(ptr);
     let missing_space = estimated_new_block_size - ff_get_block_size(block);
 
     ff_block *next = (void *)block + ff_get_block_size(block);
@@ -509,10 +475,8 @@ bool ff_try_resize(void *ptr, size_t new_size){
         || ff_get_block_size(next) < missing_space){
         return false;
     }
-    ____________________________ff_assert_free_list_is_ok(ptr);
 // ____________________________ff_assert_free_list_is_ok(ptr);
-    // // TODO nie działa ;/
-    // return false;
+
     int next_block_alloc_size = missing_space - sizeof(ff_block) + sizeof(free_block_data);
     if(next_block_alloc_size < 0)
         next_block_alloc_size = 0;
@@ -536,8 +500,9 @@ ____________________________ff_assert_free_list_is_ok(ptr);
     return true;
 }
 
-size_t ff_data_size(chunk_header *ptr){
-    return 0;
+size_t ff_data_size(void *ptr){
+    ff_block *block = ff_get_block_by_alloc_ptr(ptr);
+    return ff_get_block_size(block) - ((size_t)ptr - (size_t)block);
 }
 
 allocator ff_allocator = {

@@ -18,9 +18,6 @@ typedef struct chunk_header {
 } chunk_header;
 
 
-size_t page_size;
-
-
 chunk_header* first_chunk = NULL;
 
 void register_chunk(chunk_header *new_ch){
@@ -32,9 +29,9 @@ void *allocate_chunk(size_t min_len, allocator *VMD){
     // min_len means usable memory - except header
 
 
-    size_t num_pages = (min_len + sizeof(chunk_header) + page_size - 1) / page_size;
+    size_t num_pages = (min_len + sizeof(chunk_header) + getpagesize() - 1) / getpagesize();
 
-    chunk_header *chunk = allocate_memory(num_pages * page_size);
+    chunk_header *chunk = allocate_memory(num_pages * getpagesize());
     INIT_CANARY(chunk, chunk_header);
     chunk->num_pages = num_pages;
     chunk->_ = VMD;
@@ -69,7 +66,7 @@ void free_chunk(chunk_header *which){
     CHECK_CANARY(which, chunk_header);
 
     unregister_chunk(which);
-    deallocate_memory(which, which->num_pages * page_size);
+    deallocate_memory(which, which->num_pages * getpagesize());
 }
 
 
@@ -78,7 +75,7 @@ chunk_header *chunk_find_by_data_ptr(void *data_ptr){
     assert(first_chunk != NULL);
     assert(data_ptr != NULL);
     chunk_header *i = first_chunk;
-    while(data_ptr < (void *)i || data_ptr > (void *)i + i->num_pages * page_size){
+    while(data_ptr < (void *)i || data_ptr > (void *)i + i->num_pages * getpagesize()){
         i = i->next;
         assert(i != NULL);
     }
@@ -96,6 +93,5 @@ void some_asserts(){
 
 // todo macro for constructors
 __attribute__((constructor)) void chunker_init(){
-    page_size = sysconf(_SC_PAGESIZE);
     some_asserts();
 }
