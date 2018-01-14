@@ -1,6 +1,3 @@
-// #define NDEBUG
-
-
 #include "./common.h"
 #include "./memory.h"
 #include "./allocator/big_block.h"
@@ -14,7 +11,7 @@ mutex_t mutex;
 
 
 allocator *choose_allocator_by_size(size_t size){
-    if(size <= 512){
+    if(size <= 128){
         return &bitmap_allocator;
     }
 
@@ -29,7 +26,6 @@ allocator *choose_allocator_by_size(size_t size){
 
 void *my_alloc(size_t size, size_t align){
     { // ensure sizeof(void *) alignment
-        assert(align % sizeof(void *) == 0); 
         size = size + sizeof(void *) - (size % sizeof(void *)); 
     }
 
@@ -64,8 +60,10 @@ __attribute__((constructor)) void memory_init(){
 
 
 
-extern void my_free(void *ptr){
-    assert(ptr != NULL);
+void my_free(void *ptr){
+    if(ptr == NULL){
+        return;
+    }
 
     mutex_lock(&mutex);
 
@@ -78,7 +76,7 @@ extern void my_free(void *ptr){
 }
 
 
-extern void *my_realloc(void *ptr, size_t size){
+void *my_realloc(void *ptr, size_t size){
     // "If ptr is NULL, then the call is equivalent to malloc(size), for all values of size"
     if(ptr == NULL){
         void *ret = my_malloc(size);
@@ -114,14 +112,14 @@ extern void *my_realloc(void *ptr, size_t size){
 
 
 
-extern void *my_malloc(size_t size){
+void *my_malloc(size_t size){
     mutex_lock(&mutex);
     void *ret = my_alloc(size, sizeof(void *));
     mutex_unlock(&mutex);
     return ret;
 }
 
-extern void *my_calloc(size_t count, size_t size){
+void *my_calloc(size_t count, size_t size){
     size *= count;
 
     mutex_lock(&mutex);
@@ -136,7 +134,7 @@ extern void *my_calloc(size_t count, size_t size){
     return mem;
 }
 
-extern int my_posix_memalign(void **memptr, size_t alignment, size_t size){
+int my_posix_memalign(void **memptr, size_t alignment, size_t size){
     mutex_lock(&mutex);
     *memptr = my_alloc(size, alignment);
     mutex_unlock(&mutex);

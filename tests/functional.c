@@ -9,7 +9,7 @@
 
 /*
 The plan:
-- Allocate 20 GB of memory in total
+- Allocate 10 GB of memory in total
 - 1 GB allocated at average
 - randomly choose posix_memalign, calloc, malloc, and check assumptions of used function
 - write some random, deterministic data to each allocated block
@@ -114,7 +114,7 @@ typedef struct {
 
 #define NUM_THREADS 1
 #define _1GB 1073741824ull 
-#define _100GB (1 * _1GB)
+#define _100GB (3 * _1GB)
 #define ALLOC_MAX _1GB
 #define ALLOC_MIN 1
 #define ALLOC_AVG 250000 / NUM_THREADS

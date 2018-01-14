@@ -1,20 +1,15 @@
+# Summary:
+I have implemented malloc with 3 different allocation algorithms:
+- big-block - used for the bigest allocations, just gives whole pages
+- bitmap allocator - which uses the least amount of memory while allocating small blocks
+- traditional first-fit 
 
+# Also:
+- canaries in order to detect internal data structures corruptions
+- one really good functional test
+- file structure, that moves platform-specific code in one plece
+- millions of asserts, which helps to quickly diagnose problems, and wrong input (non-existing ptr as free() argument)
 
-# Requirements:
-- chunk must be released if is empty and empty space in other chunks is above specified treshold
-- if user requested block larger than several pages, then whole chunk should be given
-- first-fit
-- double linked list of blocks sorted by address
-- eager coalescence 
-- thread safety
-- mdump 
-
-# What I've Done:
-- big block allocator - allocates whole chunk for block
-- abstract allocator class and virtual dispatching. $ operator means calling virtual method.
-- Canaries. Every important data structure has constant value named "canary", which is sometimes checked in order to detect data corruption.
-
-
-
-
-Because of some assumpions and numerous undefined behaviour, please use gcc version 5.4.0 in case of problems.
+# What is not implemented:
+- unit tests - I used this functional test and asserts during development, and adding unit tests at the end is unnatural
+- mdump
