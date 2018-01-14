@@ -405,7 +405,9 @@ ff_block *ff_get_block_by_alloc_ptr(void *ptr){
     }
     
     ff_block *block = (void *)shift_pointer - sizeof(ff_block) + sizeof(free_block_data);
+    printf("%u\n", (size_t)ptr - (size_t)shift_pointer);
     CHECK_CANARY(block, ff_block);
+    printf("%u\n", (size_t)ptr - (size_t)shift_pointer);
 
     return block;
 }
@@ -447,18 +449,18 @@ void ff_try_merge_with_siblings(ff_block *block){
 void ff_free(void *ptr){
 
     // ____________________________ff_assert_free_list_is_ok(ptr);
-    // ff_block *block = ff_get_block_by_alloc_ptr(ptr);
+    ff_block *block = ff_get_block_by_alloc_ptr(ptr);
     // CHECK_CANARY(block, ff_block);
 
     // ff_block *prev_free = ff_get_previous_free(block);
     // ff_block *next_free = prev_free == NULL ? ff_get_next_free(block) : prev_free->free_block_data.next_free;
 
-    // ____________________________ff_assert_free_list_is_ok(ptr);
-    // // printf("asdf %p %p %p\n", prev_free, block, next_free);
+    ____________________________ff_assert_free_list_is_ok(ptr);
+    // printf("asdf %p %p %p\n", prev_free, block, next_free);
 
     // ff_set_block_as_free_and_update_list(block, prev_free, next_free);
     
-    // ____________________________ff_assert_free_list_is_ok(ptr);
+    ____________________________ff_assert_free_list_is_ok(ptr);
     // ff_try_merge_with_siblings(block);  
     ____________________________ff_assert_free_list_is_ok(ptr); 
 }

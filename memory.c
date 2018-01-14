@@ -12,7 +12,7 @@
 
 allocator *choose_allocator_by_size(size_t size){
     // if(size <= 512){
-    //     return &bittmap_allocator;
+    //     return &bitmap_allocator;
     // printf("bm\n");
     // }
 
@@ -32,9 +32,8 @@ void *my_alloc(size_t size, size_t align){
         assert(align % sizeof(void *) == 0); 
         size = size + sizeof(void *) - (size % sizeof(void *)); 
     }
-    // printf("size: %u align: %u\n", size, align);
+
     void *ptr = choose_allocator_by_size(size)->alloc(size, align); // choose allocator apropriate to size of block
-    // printf("%d %d %p \n\n\n\n", size, align, ptr);
     return ptr;
 }
 
@@ -83,7 +82,7 @@ extern void *my_realloc(void *ptr, size_t size){
         return ptr; // resized!
     }
 
-    size_t old_size = chunk $ data_size(chunk);
+    size_t old_size = chunk $ data_size(ptr);
 
     if(old_size != 0 && size > old_size){
         return my_move_to_bigger_block(ptr, chunk, old_size, size);

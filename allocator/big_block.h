@@ -50,9 +50,10 @@ bool big_block_try_resize(void *ptr, size_t new_size){
     return false; // not implemented for this kind of allocation
 }
 
-size_t big_block_data_size(chunk_header *ptr){
+size_t big_block_data_size(void *ptr){
+    chunk_header *chunk = chunk_find_by_data_ptr(ptr);
     assert(ptr != NULL);
-    big_block_header *hdr = (void *)ptr + sizeof(chunk_header);
+    big_block_header *hdr = (void *)chunk + sizeof(chunk_header);
     CHECK_CANARY(hdr, big_block_header);
     return hdr->data_size;
 }

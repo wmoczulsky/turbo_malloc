@@ -1,7 +1,7 @@
 CC = clang
-CFLAGS_ = -std=gnu11 -Wall -Wextra
+CFLAGS = -std=gnu11 -Wall -Wextra
 
-all: main
+all: test 
 
 main: main.c memory.o
 	$(CC) $(CFLAGS) -g main.c memory.o -o main

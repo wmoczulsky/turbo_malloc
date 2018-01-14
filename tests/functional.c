@@ -86,7 +86,6 @@ void *call_realloc(void *ptr, size_t size){
         //printf(" \n", ptr, size);
 
     void * res = my_realloc(ptr, size);
-        printf("Rr %p\n", res);
     if(res != NULL){
         validate_malloc(res, size);
     }

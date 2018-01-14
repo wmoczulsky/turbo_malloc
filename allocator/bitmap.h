@@ -252,7 +252,7 @@ bool bitmap_try_resize(void *ptr, size_t new_size){
     return false;
 }
 
-size_t bitmap_data_size(chunk_header *ptr){
+size_t bitmap_data_size(void *ptr){
     return 0;
 }
 
