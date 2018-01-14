@@ -25,7 +25,7 @@ typedef struct _allocator allocator;
 // than converting string into an int compile-time
 #ifndef NDEBUG
     #define CANARY_START ;uint16_t canary_start ;
-    #define CANARY_END ;uint16_t canary_end ;
+    #define CANARY_END ; uint16_t canary_end ;
     #define INIT_CANARY(THIS, NAME)  THIS->canary_start = 0x5DEC   ; THIS->canary_end = 0x5DEC  ;
     #define CHECK_CANARY(THIS, NAME) assert(THIS->canary_start == 0x5DEC ) ; assert(THIS->canary_end == 0x5DEC ) ;
     // #define INIT_CANARY(THIS, NAME)  THIS->canary_start = (size_t)#NAME "_start" ; THIS->canary_end = (size_t)#NAME "_end" ;

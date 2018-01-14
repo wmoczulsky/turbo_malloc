@@ -23,6 +23,8 @@ typedef struct ff_block {
 
     CANARY_END; 
 
+    uint8_t aux; // read comment to ff_get_block_by_alloc_ptr()
+    
     union {
         uint8_t data[0]; // data ptr
         free_block_data free_block_data;
@@ -55,6 +57,7 @@ bool ff_is_block_free(ff_block *block){
 }
 
 void ff_set_block_size(ff_block *block, size_t size){
+    CHECK_CANARY(block, ff_block);
     assert(size >= sizeof(ff_block));
     block->size_and_free = (block->size_and_free & 1) | (size << 1);
     // update next block data:
@@ -68,6 +71,7 @@ void ff_set_block_size(ff_block *block, size_t size){
 }
 
 void ff_block_set_is_free(ff_block *block, bool value){
+    CHECK_CANARY(block, ff_block);
     block->size_and_free = (block->size_and_free & 0xFFFE) + value;
 }
 
@@ -140,9 +144,9 @@ ff_region *ff_new_region(){
     ff_block *block = (void *)new_region + sizeof(ff_region);
     block->size_of_previous_block = 0;
     new_region->first_free = block;
-    ff_block_set_is_free(block, true);
     INIT_CANARY(block, ff_block);
     ff_set_block_size(block, getpagesize() - sizeof(chunk_header) - sizeof(ff_region));
+    ff_block_set_is_free(block, true);
 
     return new_region;
 }
@@ -372,17 +376,29 @@ void *ff_alloc(size_t size, size_t align){
     
     ff_mark_as_used(block, size + shift);
 
-    for(size_t i = 0; i < shift; i++){
-        // please read long comment several lines below
-        *((uint8_t *)block->data + i) = 0xFF;
-    }
-    ____________________________ff_assert_free_list_is_ok(block);
-    // according to this long comment below, this bit should always be 0.
-    // but what if paddings are injected? Let's force it.
-    *((uint8_t *)block->data - 1) &= 0xFE; 
-    // printf("A %p %u %u %u\n", (void *)block->data + shift,size, align, shift);
 
+    
+    { // please read long comment several lines below
+        #ifdef NDEBUG
+           for(uint8_t *i = &block->size_and_free + sizeof(block->size_and_free); i < (uint8_t *)block->data; i++){
+                *i = 0;
+            }
+        #else
+            for(uint8_t *i = &block->canary_end + sizeof(block->canary_end); i < (uint8_t *)block->data; i++){
+                *i = 0;
+            }
+        #endif
+        for(size_t i = 0; i < shift; i++){
+            *((uint8_t *)block->data + i) = 0xFF;
+        }
+        block->aux = 0;
+    }
+
+
+
+    printf("ALLOC %u %u %u %p\n", size, align, shift, (void *)block->data + shift);
     ____________________________ff_assert_free_list_is_ok(block);
+    CHECK_CANARY(block, ff_block);
     return (void *)block->data + shift;
 }
 
@@ -398,6 +414,9 @@ ff_block *ff_get_block_by_alloc_ptr(void *ptr){
 
     // It probably could be optimized even more, because align is equal to power of 2, 
     // but knowing, that most of aligns are really small, it may be not better
+
+    // UPDATE: after long hours of debugging, I realised, that above is actually not true because of endianness. 
+    // So as workaround I added aux field at the end of struct, which should be equal to 0. 
 
     uint8_t *shift_pointer = ptr;
     while(*(shift_pointer - 1) == 0xFF){
@@ -468,53 +487,53 @@ void ff_free(void *ptr){
 bool ff_try_resize(void *ptr, size_t new_size){
 
     ____________________________ff_assert_free_list_is_ok(ptr);
-//     ff_block *block = ff_get_block_by_alloc_ptr(ptr);
-//     assert(!ff_is_block_free(block));
+    ff_block *block = ff_get_block_by_alloc_ptr(ptr);
+    assert(!ff_is_block_free(block));
 
-//     int shift = (size_t)ptr - (size_t)block->data;
-// //    printf("shift: %u\n", shift);
+    int shift = (size_t)ptr - (size_t)block->data;
+//    printf("shift: %u\n", shift);
 
-//     let estimated_new_block_size = new_size + shift + sizeof(ff_block) - sizeof(free_block_data);
-//     if(estimated_new_block_size <= ff_get_block_size(block)){
-//         ff_split_block_if_profitable(block, shift + new_size);
-//         return true;
-//     }
+    let estimated_new_block_size = new_size + shift + sizeof(ff_block) - sizeof(free_block_data);
+    if(estimated_new_block_size <= ff_get_block_size(block)){
+        ff_split_block_if_profitable(block, shift + new_size);
+        return true;
+    }
 
-//     ____________________________ff_assert_free_list_is_ok(ptr);
-//     let missing_space = estimated_new_block_size - ff_get_block_size(block);
+    ____________________________ff_assert_free_list_is_ok(ptr);
+    let missing_space = estimated_new_block_size - ff_get_block_size(block);
 
-//     ff_block *next = (void *)block + ff_get_block_size(block);
+    ff_block *next = (void *)block + ff_get_block_size(block);
 
-//     if((size_t)next / getpagesize() != (size_t)block / getpagesize() 
-//         || !ff_is_block_free(next)
-//         || ff_get_block_size(next) < missing_space){
-//         return false;
-//     }
-//     ____________________________ff_assert_free_list_is_ok(ptr);
-// // ____________________________ff_assert_free_list_is_ok(ptr);
-//     // // TODO nie działa ;/
-    return false;
-//     int next_block_alloc_size = missing_space - sizeof(ff_block) + sizeof(free_block_data);
-//     if(next_block_alloc_size < 0)
-//         next_block_alloc_size = 0;
-    
-//     ff_mark_as_used(next, next_block_alloc_size);
-
-//     let real_new_block_size = ff_get_block_size(block) + ff_get_block_size(next);
-
-//     // maybe next was splitted into two blocks, and first one was set as free
-//     // in order to destroy first block, we must update pointers
-//     ff_block *next_next = (void *)next + ff_get_block_size(next);
-//     if((size_t)next_next / getpagesize() == (size_t)block / getpagesize()){
-//         CHECK_CANARY(next_next, ff_block);
-//         next_next->size_of_previous_block = real_new_block_size;
-//     }
-
-//     // Cannot use ff_set_block_size() because current size is broken
-//     block->size_and_free = (real_new_block_size) << 1;
+    if((size_t)next / getpagesize() != (size_t)block / getpagesize() 
+        || !ff_is_block_free(next)
+        || ff_get_block_size(next) < missing_space){
+        return false;
+    }
+    ____________________________ff_assert_free_list_is_ok(ptr);
 // ____________________________ff_assert_free_list_is_ok(ptr);
+    // // TODO nie działa ;/
+    // return false;
+    int next_block_alloc_size = missing_space - sizeof(ff_block) + sizeof(free_block_data);
+    if(next_block_alloc_size < 0)
+        next_block_alloc_size = 0;
+    
+    ff_mark_as_used(next, next_block_alloc_size);
 
-//     return true;
+    let real_new_block_size = ff_get_block_size(block) + ff_get_block_size(next);
+
+    // maybe next was splitted into two blocks, and first one was set as free
+    // in order to destroy first block, we must update pointers
+    ff_block *next_next = (void *)next + ff_get_block_size(next);
+    if((size_t)next_next / getpagesize() == (size_t)block / getpagesize()){
+        CHECK_CANARY(next_next, ff_block);
+        next_next->size_of_previous_block = real_new_block_size;
+    }
+
+    // Cannot use ff_set_block_size() because current size is broken
+    block->size_and_free = (real_new_block_size) << 1;
+____________________________ff_assert_free_list_is_ok(ptr);
+
+    return true;
 }
 
 size_t ff_data_size(chunk_header *ptr){
