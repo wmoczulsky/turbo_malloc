@@ -309,6 +309,19 @@ void *ff_alloc(size_t size, size_t align){
         // please read long comment several lines below
         *((uint8_t *)block->data + i) = 0xFF;
     }
+    *((uint8_t *)block->data - 1) &= 0xFE; 
+    #ifdef NDEBUG
+       for(uint8_t *i = &block->size_and_free + sizeof(block->size_and_free); i < (uint8_t *)block->data; i++){
+            *i = 0;
+        }
+    #else
+        for(uint8_t *i = &block->canary_end + sizeof(block->canary_end); i < (uint8_t *)block->data; i++){
+            *i = 0;
+        }
+    #endif
+
+
+
 
     ____________________________ff_assert_free_list_is_ok(block);
     return (void *)block->data + shift;
